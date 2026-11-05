@@ -1,4 +1,4 @@
-# Events Hub
+# NHYIAMU
 
 Free directory of event suppliers in Ejisu and Juaben Municipalities (Ashanti, Ghana). A project of MEYE CATHOLIC ASOREBA.
 

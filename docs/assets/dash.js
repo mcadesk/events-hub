@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=9';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=10';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -99,11 +99,11 @@ function passwordToggles() {
 
 /* ---------- sign in / create account ---------- */
 function signIn(mode = 'signin') {
-  document.title = 'Sign in — Events Hub';
+  document.title = 'Sign in — NHYIAMU';
   const isUp = mode === 'signup';
   app.innerHTML = `<div class="wrap"><div class="panel auth-card">
     <h1 style="font-size:1.8rem">${isUp ? 'Create your free account' : 'Sign in'}</h1>
-    <p class="muted" style="margin-top:0">${isUp ? 'For suppliers listing their business, field agents and anyone leaving reviews.' : 'Welcome back to Events Hub.'}</p>
+    <p class="muted" style="margin-top:0">${isUp ? 'For suppliers listing their business, field agents and anyone leaving reviews.' : 'Welcome back to NHYIAMU.'}</p>
     <form class="form" id="auth-form">
       ${isUp ? `<div class="field"><label for="a-name">Your name</label><input type="text" id="a-name" required autocomplete="name"></div>
       <div class="field"><label for="a-phone">Phone (WhatsApp)</label><input type="tel" id="a-phone" required placeholder="024 123 4567" autocomplete="tel"></div>` : ''}
@@ -350,7 +350,7 @@ async function editor(u, id, asAgent) {
         <div class="field"><label for="e-tt">TikTok</label><input type="text" id="e-tt" value="${esc(l?.socials?.tiktok || '')}"></div>
       </div>
     </fieldset>
-    ${agentMode && isNew ? '<label class="check" style="white-space:normal"><input type="checkbox" id="e-consent" required> The supplier agrees to be listed on Events Hub with these details</label>' : ''}
+    ${agentMode && isNew ? '<label class="check" style="white-space:normal"><input type="checkbox" id="e-consent" required> The supplier agrees to be listed on NHYIAMU with these details</label>' : ''}
     <fieldset><legend>Photos</legend>
       ${isNew ? '<p class="muted" style="margin:0">Save first, then you can add up to 10 photos of your work.</p>' : `
       <div class="photos" id="photos">${photos.map((p) => `<div class="photo"><img src="${esc(photoUrl(p.path))}" alt=""><button type="button" data-del="${p.id}" data-path="${esc(p.path)}" aria-label="Remove photo">×</button></div>`).join('')}</div>
@@ -798,7 +798,7 @@ async function partnersAdmin(u) {
         <div class="field"><label>Maximum (GH₵)</label><input type="number" id="lp-max"></div>
       </div>
       <div class="field"><label>Requirements</label><input type="text" id="lp-req" placeholder="e.g. Member for 3 months, Ghana Card"></div>
-      <div class="field"><label>Partner's account email (optional)</label><input type="text" id="lp-owner" placeholder="Their Events Hub account, so they can see enquiries"></div>
+      <div class="field"><label>Partner's account email (optional)</label><input type="text" id="lp-owner" placeholder="Their NHYIAMU account, so they can see enquiries"></div>
       <button class="btn" type="submit">Add partner</button></form>
     <div class="row-list">${(data || []).map((p) => `<div class="row"><div class="row-top"><b>${esc(p.name)}</b><span class="status ${p.active ? 'status-live' : ''}">${p.active ? 'shown' : 'hidden'}</span></div>
       <span class="muted">${esc(p.towns || '')} ${p.phone ? '· ' + esc(p.phone) : ''}</span>

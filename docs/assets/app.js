@@ -1,10 +1,10 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder,
-  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=9';
-import { SAMPLE_LISTINGS } from './sample.js?v=9';
+  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=10';
+import { SAMPLE_LISTINGS } from './sample.js?v=10';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
-const waLink = (l) => `https://wa.me/${waNumber(l.whatsapp)}?text=${encodeURIComponent(`Hello ${l.business_name}, I found you on Events Hub. I'd like to ask about your services for an event.`)}`;
+const waLink = (l) => `https://wa.me/${waNumber(l.whatsapp)}?text=${encodeURIComponent(`Hello ${l.business_name}, I found you on NHYIAMU. I'd like to ask about your services for an event.`)}`;
 const isDemo = () => session.get('eh-demo') === '1';
 const setDemo = (on) => { session.set('eh-demo', on ? '1' : null); document.getElementById('demo-banner').hidden = !on; };
 
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=9');
+      const dash = await import('./dash.js?v=10');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -60,7 +60,7 @@ document.getElementById('demo-off').addEventListener('click', () => { setDemo(fa
 /* ---------- pages ---------- */
 function home() {
   const town = store.get('eh-town', CFG.defaultTown);
-  document.title = 'Events Hub — find everything for your event';
+  document.title = 'NHYIAMU — find everything for your event';
   app.innerHTML = `
   <section class="hero"><div class="wrap">
     <h1>Everything for your event, in one place</h1>
@@ -88,7 +88,7 @@ function home() {
     <div class="how">
       <div class="panel"><b>1. Pick your town</b>See suppliers based there, plus those who travel to you.</div>
       <div class="panel"><b>2. Compare</b>Photos, price ranges, reviews and verified badges.</div>
-      <div class="panel"><b>3. WhatsApp or call</b>Agree everything directly with the supplier. Events Hub is free.</div>
+      <div class="panel"><b>3. WhatsApp or call</b>Agree everything directly with the supplier. NHYIAMU is free.</div>
     </div>
   </div></section>
 
@@ -116,7 +116,7 @@ async function townPage(townSlug) {
   const town = REF.townBySlug[townSlug];
   if (!town) return notFound();
   store.set('eh-town', town.slug);
-  document.title = `Event suppliers in ${town.name} — Events Hub`;
+  document.title = `Event suppliers in ${town.name} — NHYIAMU`;
   app.innerHTML = `<div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › ${esc(town.name)}</div>
     <h1>Event suppliers in ${esc(town.name)}</h1>
@@ -154,7 +154,7 @@ async function results(townSlug, catSlug, params) {
   const sub = params.get('sub') || '';
   const subs = cat ? REF.cats.filter((c) => c.parent_id === cat.id) : [];
   const title = cat ? cat.name : 'All suppliers';
-  document.title = `${title} in ${town.name} — Events Hub`;
+  document.title = `${title} in ${town.name} — NHYIAMU`;
 
   const qs = (over = {}) => {
     const p = new URLSearchParams({ scope, ...(verified ? { v: '1' } : {}), ...(q ? { q } : {}), ...(sub ? { sub } : {}) });
@@ -193,7 +193,7 @@ async function results(townSlug, catSlug, params) {
   document.getElementById('r-note').textContent = {
     area: `Suppliers based in ${town.name}, plus those who travel here.`,
     region: 'Suppliers across the Ashanti Region, nearest first.',
-    all: 'Every supplier on Events Hub, nearest first.'
+    all: 'Every supplier on NHYIAMU, nearest first.'
   }[scope] || '';
 
   const filterCat = sub ? REF.catBySlug[sub] : cat;
@@ -220,7 +220,7 @@ async function results(townSlug, catSlug, params) {
     if (first) list.innerHTML = '';
     if (first && rows.length === 0) {
       list.outerHTML = `<div class="empty" id="r-list"><h3>No ${esc(title.toLowerCase())} listed here yet</h3>
-        <p class="muted">${scope === 'area' ? 'Try <b>Ashanti</b> or <b>All suppliers</b> above to see suppliers further away.' : 'Events Hub is new — suppliers are being added every week.'}</p>
+        <p class="muted">${scope === 'area' ? 'Try <b>Ashanti</b> or <b>All suppliers</b> above to see suppliers further away.' : 'NHYIAMU is new — suppliers are being added every week.'}</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <a class="btn" href="#/list">Know a supplier? Tell them to list free</a>
           ${isDemo() ? '' : '<button class="btn btn-ghost" id="demo-on">Preview with sample listings</button>'}
@@ -283,7 +283,7 @@ async function listingPage(slug) {
     if (data) l = { ...data, town: data.towns, categories: data.listing_categories.map((x) => x.categories), photos: data.listing_photos.sort((a, b) => a.sort - b.sort), reviews: data.reviews };
   }
   if (!l) return notFound('This listing could not be found. It may have been removed.');
-  document.title = `${l.business_name} — Events Hub`;
+  document.title = `${l.business_name} — NHYIAMU`;
   logTap(l.id, 'view');
 
   const ratings = l.reviews.map((r) => r.rating);
@@ -310,7 +310,7 @@ async function listingPage(slug) {
       <div>
         <h1 style="margin-top:6px">${esc(l.business_name)}</h1>
         <div class="badges" style="margin-bottom:10px">
-          ${l.verified ? '<span class="badge badge-verified">✓ Verified by Events Hub</span>' : ''}
+          ${l.verified ? '<span class="badge badge-verified">✓ Verified by NHYIAMU</span>' : ''}
           ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
           ${l.categories.map((c) => `<span class="badge">${esc(c.name)}</span>`).join('')}
         </div>
@@ -390,20 +390,20 @@ async function listingPage(slug) {
     logTap(l.id, 'share');
     const url = location.href;
     try {
-      if (navigator.share) await navigator.share({ title: l.business_name, text: `${l.business_name} on Events Hub`, url });
+      if (navigator.share) await navigator.share({ title: l.business_name, text: `${l.business_name} on NHYIAMU`, url });
       else { await navigator.clipboard.writeText(url); e.target.textContent = 'Link copied ✓'; }
     } catch {}
   });
 }
 
 async function financePage() {
-  document.title = 'Finance your event — Events Hub';
+  document.title = 'Finance your event — NHYIAMU';
   const { data: partners } = await db.from('loan_partners').select('id,name,phone,email,towns,products').eq('active', true).order('name');
   const town = store.get('eh-town', CFG.defaultTown);
   app.innerHTML = `<div class="wrap section">
     <h1>Finance your event</h1>
     <p class="muted prose">Need help paying for a wedding, funeral or celebration? Our partner credit unions, banks and savings &amp; loans offer event loans. Send one enquiry and the partner will contact you.</p>
-    <div class="notice" style="margin:14px 0">Loans are offered and approved by the partner institution alone. Events Hub is not a lender and never handles your money.</div>
+    <div class="notice" style="margin:14px 0">Loans are offered and approved by the partner institution alone. NHYIAMU is not a lender and never handles your money.</div>
     ${partners && partners.length ? `
       <div class="results" style="margin-bottom:24px">${partners.map((p) => `<div class="panel partner"><h3>${esc(p.name)}</h3>
         ${p.towns ? `<span class="muted">Branches: ${esc(p.towns)}</span>` : ''}
@@ -443,7 +443,7 @@ async function financePage() {
 }
 
 function permitsPage() {
-  document.title = 'Event permits guide — Events Hub';
+  document.title = 'Event permits guide — NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
     <h1>Event permits guide</h1>
     <p class="muted">For public events in Ejisu and Juaben Municipalities. Small private events at home or in a hall usually need fewer of these — ask the venue.</p>
@@ -459,27 +459,27 @@ function permitsPage() {
 }
 
 function aboutPage() {
-  document.title = 'About Events Hub';
+  document.title = 'About NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
-    <h1>About Events Hub</h1>
-    <p>Events Hub is a free directory that helps families, churches, schools and businesses in Ejisu and Juaben find everything they need for an event — and helps local suppliers get found.</p>
-    <p>Events Hub is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers, and support our foundation.</p>
+    <h1>About NHYIAMU</h1>
+    <p>NHYIAMU is a free directory that helps families, churches, schools and businesses in Ejisu and Juaben find everything they need for an event — and helps local suppliers get found.</p>
+    <p>NHYIAMU is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers, and support our foundation.</p>
     <h2>Our foundation: OBREMPON</h2>
     <p>Every child is a gift. OBREMPON, our foundation (launching soon), stands with mothers and fathers who faced a difficult pregnancy and, with encouragement and support, chose to welcome their child.</p>
-    <p>We help these families with what their children need to thrive — care, schooling and a good start in life. Money left after running Events Hub goes to OBREMPON.</p>
+    <p>We help these families with what their children need to thrive — care, schooling and a good start in life. Money left after running NHYIAMU goes to OBREMPON.</p>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
   </div>`;
 }
 
 function listPage() {
-  document.title = 'List your business free — Events Hub';
+  document.title = 'List your business free — NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
     <h1>List your business free</h1>
-    <p>If you supply anything for events — venues, canopies and chairs, food and drinks, decor, cloth and sewing, makeup, sound, photos, transport and more — Events Hub helps people near you find you and contact you on WhatsApp.</p>
+    <p>If you supply anything for events — venues, canopies and chairs, food and drinks, decor, cloth and sewing, makeup, sound, photos, transport and more — NHYIAMU helps people near you find you and contact you on WhatsApp.</p>
     <ul>
       <li><b>Free forever</b> for a basic listing with photos, prices and your WhatsApp.</li>
       <li><b>First 10 suppliers in each town</b> get 3 months featured free and a Founding supplier badge.</li>
-      <li><b>Get verified:</b> an Events Hub field agent visits you and adds the Verified badge.</li>
+      <li><b>Get verified:</b> an NHYIAMU field agent visits you and adds the Verified badge.</li>
     </ul>
     <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and a moderator will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
     <p class="muted">Prefer help? Our field agents are visiting suppliers in Ejisu and Juaben to register them in person.</p>

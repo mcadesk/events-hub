@@ -48,7 +48,7 @@ export const ICONS = {
 };
 
 export function placeholder(name, seed = 0) {
-  const palettes = [['#0b5d3b', '#e9a722'], ['#7a2e1f', '#f2c14e'], ['#1e4fa3', '#e9a722'], ['#5b3a8a', '#f2c14e'], ['#0b5d3b', '#b3261e']];
+  const palettes = [['#011B59', '#FDB101'], ['#1d3373', '#FDB101'], ['#011B59', '#ffffff'], ['#2b4590', '#FDB101'], ['#00113d', '#FDB101']];
   const [a, b] = palettes[Math.abs(seed) % palettes.length];
   const initials = String(name).replace(/\(sample\)/i, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(name)}" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%">
