@@ -47,6 +47,11 @@ export const ICONS = {
   printing: '🖨️', power: '⚡', security: '🛡️', sanitation: '🚻', funeral: '🕊️', finance: '💳', other: '✨'
 };
 
+// Free photos from Unsplash (unsplash.com/license), one per category, served from Unsplash's image service
+export const CAT_PHOTO = {"venues":"1768851142332-75f3d1b47452","planners":"1768055105012-4c53791b2877","rentals":"1768179123386-a86a85f1c35c","food-drinks":"1665332195309-9d75071138f0","decorators":"1561593367-66c79c2294e6","clothing":"1775688425905-a4539d6160da","beauty":"1657563920440-0ac6d8932f20","accommodation":"1611892440504-42a792e24d32","transport":"1534011056808-50c1c6082fe7","media-pr":"1767474365536-ef81bfa24c8a","photo-video":"1629756048377-09540f52caa1","entertainment":"1523689119443-df96632084a1","ushers":"1713804459707-9c0900119aa7","printing":"1632610992723-82d7c212f6d7","power":"1700318092011-6e4666e94ab5","security":"1760228604788-db8a36d5c1a3","sanitation":"1701637783855-da67ab363cfa","funeral":"1544813545-4827b64fcacb","finance":"1533234944761-2f5337579079","other":"1762237807370-41a599e6ab86","hero":"1660675133902-acd1b057f75d"};
+export const catPhoto = (slug, w = 480, h = 320) => CAT_PHOTO[slug]
+  ? `https://images.unsplash.com/photo-${CAT_PHOTO[slug]}?w=${w}&h=${h}&fit=crop&auto=format&q=60` : null;
+
 export function placeholder(name, seed = 0) {
   const palettes = [['#011B59', '#FDB101'], ['#1d3373', '#FDB101'], ['#011B59', '#ffffff'], ['#2b4590', '#FDB101'], ['#00113d', '#FDB101']];
   const [a, b] = palettes[Math.abs(seed) % palettes.length];

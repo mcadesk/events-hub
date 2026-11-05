@@ -1,6 +1,6 @@
-import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder,
-  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=11';
-import { SAMPLE_LISTINGS } from './sample.js?v=11';
+import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto,
+  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=12';
+import { SAMPLE_LISTINGS } from './sample.js?v=12';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=11');
+      const dash = await import('./dash.js?v=12');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -62,7 +62,7 @@ function home() {
   const town = store.get('eh-town', CFG.defaultTown);
   document.title = 'NHYIAMU — find everything for your event';
   app.innerHTML = `
-  <section class="hero"><div class="wrap">
+  <section class="hero" style="--hero-img:url('${catPhoto('hero', 1400, 800)}')"><div class="wrap">
     <h1>Everything for your event, in one place</h1>
     <p>Find venues, canopies, caterers, decorators, tailors, photographers and more near you — then talk to them directly on WhatsApp.</p>
     <form class="finder" id="finder">
@@ -77,8 +77,8 @@ function home() {
   <section class="section"><div class="wrap">
     <div class="section-head"><h2>Browse by category</h2><a href="#/t/${esc(town)}" id="town-link">See all in your town</a></div>
     <div class="cat-grid">${REF.top.map((c) => `
-      <a class="cat" href="#/t/${esc(town)}/${esc(c.slug)}" data-cat="${esc(c.slug)}">
-        <span class="cat-icon" aria-hidden="true">${ICONS[c.slug] || '•'}</span>
+      <a class="cat cat-photo" href="#/t/${esc(town)}/${esc(c.slug)}" data-cat="${esc(c.slug)}">
+        ${catPhoto(c.slug) ? `<img src="${catPhoto(c.slug)}" alt="" loading="lazy" width="480" height="320">` : `<span class="cat-icon" aria-hidden="true">${ICONS[c.slug] || '•'}</span>`}
         <span class="cat-name">${esc(c.name)}</span>
       </a>`).join('')}</div>
   </div></section>
@@ -135,8 +135,8 @@ async function townPage(townSlug) {
     (data || []).forEach((r) => { counts[REF.catById[r.category_id]?.slug] = r.n; });
   }
   document.getElementById('t-cats').innerHTML = REF.top.map((c) => `
-    <a class="cat" href="#/t/${esc(town.slug)}/${esc(c.slug)}">
-      <span class="cat-icon" aria-hidden="true">${ICONS[c.slug] || '•'}</span>
+    <a class="cat cat-photo" href="#/t/${esc(town.slug)}/${esc(c.slug)}">
+      ${catPhoto(c.slug) ? `<img src="${catPhoto(c.slug)}" alt="" loading="lazy" width="480" height="320">` : `<span class="cat-icon" aria-hidden="true">${ICONS[c.slug] || '•'}</span>`}
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-count">${counts[c.slug] ? `${counts[c.slug]} supplier${counts[c.slug] > 1 ? 's' : ''}` : 'None yet'}</span>
     </a>`).join('');
@@ -165,7 +165,8 @@ async function results(townSlug, catSlug, params) {
 
   app.innerHTML = `<div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › <a href="#/t/${esc(town.slug)}">${esc(town.name)}</a> › ${esc(title)}</div>
-    <h1>${esc(title)} <span class="muted" style="font-size:.6em">in ${esc(town.name)}</span></h1>
+    ${cat && catPhoto(cat.slug) ? `<div class="cat-banner" style="background-image:url('${catPhoto(cat.slug, 1200, 360)}')"><h1>${esc(title)} <span>in ${esc(town.name)}</span></h1></div>`
+      : `<h1>${esc(title)} <span class="muted" style="font-size:.6em">in ${esc(town.name)}</span></h1>`}
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Which suppliers to show">
         ${scopeBtn('area', 'This area')}${scopeBtn('region', 'Ashanti')}${scopeBtn('all', 'All suppliers')}

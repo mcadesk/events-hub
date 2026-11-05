@@ -57,7 +57,7 @@ h3 { font-size: 1.1rem; }
 .demo-banner button { background: none; border: 0; color: var(--green); text-decoration: underline; cursor: pointer; font-weight: 600; }
 
 /* Hero */
-.hero { background: linear-gradient(160deg, var(--green) 0%, var(--green-dark) 100%); color: #fff; padding: 36px 0 28px; position: relative; overflow: hidden; }
+.hero { background: linear-gradient(160deg, rgba(1,27,89,.93) 0%, rgba(0,17,61,.88) 100%), var(--hero-img, none) center/cover, var(--green); color: #fff; padding: 36px 0 28px; position: relative; overflow: hidden; }
 .hero::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--gold); }
 .hero::before { content: ''; position: absolute; right: -60px; top: -40px; width: 260px; height: 260px; opacity: .10;
   background: url('../icons/logo-mark.png') center/contain no-repeat; filter: brightness(0) invert(1); pointer-events: none; }
@@ -228,3 +228,15 @@ body.has-cta { padding-bottom: 70px; }
 .topnav a { white-space: nowrap; }
 .show-xs { display: none; }
 @media (max-width: 420px) { .hide-xs { display: none; } .show-xs { display: inline; } .brand { gap: 7px; } .brand-mark { width: 30px; height: 30px; } }
+/* Category photos (free images from Unsplash) */
+.cat-photo { padding: 0; overflow: hidden; gap: 0; min-height: 0; }
+.cat-photo img { width: 100%; aspect-ratio: 3/2; height: auto; object-fit: cover; background: var(--green-soft); }
+.cat-photo .cat-icon { margin: 14px 14px 0; }
+.cat-photo .cat-name { padding: 10px 12px 2px; }
+.cat-photo .cat-count { padding: 0 12px 12px; }
+.cat-photo .cat-name:last-child { padding-bottom: 12px; }
+.cat-banner { border-radius: var(--radius); background-size: cover; background-position: center; position: relative; overflow: hidden; margin: 8px 0 14px; min-height: 140px; display: flex; align-items: flex-end; }
+.cat-banner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(1,27,89,.15) 0%, rgba(1,27,89,.85) 100%); }
+.cat-banner h1 { position: relative; color: #fff; margin: 0; padding: 16px; }
+.cat-banner h1 span { font-size: .6em; color: var(--gold); }
+.photo-credit { font-size: .78rem; color: #9fabcf; }
