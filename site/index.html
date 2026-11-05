@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Events Hub — find everything for your event</title>
+  <meta name="description" content="Find event centres, canopies, caterers, decorators, tailors, photographers and more in Ejisu and Juaben. Contact them directly on WhatsApp.">
+  <meta name="theme-color" content="#0b5d3b">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="#/" class="brand" aria-label="Events Hub home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Events Hub</span>
+    </a>
+    <nav class="topnav">
+      <a href="#/finance">Event loans</a>
+      <a href="#/list" class="btn btn-small">List your business</a>
+    </nav>
+  </header>
+
+  <div id="demo-banner" class="demo-banner" hidden>
+    Showing <b>sample listings</b> for preview — these are not real businesses.
+    <button type="button" id="demo-off">Hide samples</button>
+  </div>
+
+  <main id="app" tabindex="-1">
+    <div class="loading">Loading…</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>
+        <div class="brand-name">Events Hub</div>
+        <p>Free directory of event suppliers in Ejisu and Juaben Municipalities. A charity project of MCA Desk.</p>
+      </div>
+      <nav>
+        <a href="#/about">About &amp; our foundation</a>
+        <a href="#/permits">Event permits guide</a>
+        <a href="#/finance">Finance your event</a>
+        <a href="#/list">List your business free</a>
+      </nav>
+    </div>
+    <p class="footer-note">Agree prices in writing and avoid paying the full amount before your event.</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>
