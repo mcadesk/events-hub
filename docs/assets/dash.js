@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions,
-  subcatOptions, me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=7';
+  subcatOptions, me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=8';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -73,6 +73,30 @@ function shell(u, active, title, body) {
 const statusBadge = (s) => `<span class="status status-${esc(s)}">${esc(s)}</span>`;
 const fail = (error, what = 'That') => { console.error(error); toast(`${what} didn't work: ${error?.message || 'please try again'}`, true); };
 
+
+// Adds a "Show / Hide" button next to every password box on the page
+function passwordToggles() {
+  document.querySelectorAll('input[type=password]').forEach((inp) => {
+    if (inp.dataset.toggle) return;
+    inp.dataset.toggle = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'pw-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pw-toggle'; b.textContent = 'Show';
+    b.setAttribute('aria-label', 'Show password');
+    b.addEventListener('click', () => {
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      b.textContent = show ? 'Hide' : 'Show';
+      b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      inp.focus();
+    });
+    wrap.appendChild(b);
+  });
+}
+
 /* ---------- sign in / create account ---------- */
 function signIn(mode = 'signin') {
   document.title = 'Sign in — Events Hub';
@@ -92,6 +116,7 @@ function signIn(mode = 'signin') {
     <p style="margin:16px 0 0">${isUp ? 'Already have an account? <button class="linkish" id="to-in">Sign in</button>'
       : 'New here? <button class="linkish" id="to-up">Create a free account</button><br><button class="linkish" id="forgot" style="margin-top:8px">Forgot your password?</button>'}</p>
   </div></div>`;
+  passwordToggles();
   document.getElementById('to-in')?.addEventListener('click', () => signIn('signin'));
   document.getElementById('to-up')?.addEventListener('click', () => signIn('signup'));
   document.getElementById('forgot')?.addEventListener('click', forgot);
@@ -143,6 +168,7 @@ async function resetPassword() {
   app.innerHTML = `<div class="wrap"><div class="panel auth-card"><h1 style="font-size:1.8rem">Choose a new password</h1>
     <form class="form" id="r-form"><div class="field"><label for="r-pass">New password</label><input type="password" id="r-pass" required minlength="8" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;min-height:44px"></div>
     <button class="btn btn-block" type="submit">Save password</button><div id="r-msg"></div></form></div></div>`;
+  passwordToggles();
   document.getElementById('r-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const { error } = await db.auth.updateUser({ password: document.getElementById('r-pass').value });
