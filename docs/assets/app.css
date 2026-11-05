@@ -242,3 +242,5 @@ body.has-cta { padding-bottom: 70px; }
 .photo-credit { font-size: .78rem; color: #9fabcf; }
 .offer-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--green-soft); }
 .prose .cat-banner { max-width: 100%; }
+.wrap.section { padding-left: 16px; padding-right: 16px; }
+.cat-banner { background-position: center 30%; }
