@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SAMPLE_LISTINGS } from './sample.js';
+import { SAMPLE_LISTINGS } from './sample.js?v=3';
 
 const CFG = window.EVENTS_HUB;
 const db = createClient(CFG.supabaseUrl, CFG.supabaseKey);
