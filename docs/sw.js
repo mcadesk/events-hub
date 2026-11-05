@@ -1,6 +1,6 @@
 // Keeps the app shell available offline; data always comes fresh from the network.
-const CACHE = 'eventshub-v5';
-const SHELL = ['./', 'index.html', 'config.js?v=5', 'assets/app.css?v=5', 'assets/app.js?v=5', 'assets/sample.js?v=5', 'icons/icon.svg', 'manifest.webmanifest'];
+const CACHE = 'eventshub-v6';
+const SHELL = ['./', 'index.html', 'config.js?v=6', 'assets/app.css?v=6', 'assets/app.js?v=6', 'assets/sample.js?v=6', 'assets/core.js?v=6', 'assets/dash.js?v=6', 'icons/icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

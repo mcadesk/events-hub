@@ -1,80 +1,24 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SAMPLE_LISTINGS } from './sample.js?v=5';
+import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder,
+  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=6';
+import { SAMPLE_LISTINGS } from './sample.js?v=6';
 
-const CFG = window.EVENTS_HUB;
-const db = createClient(CFG.supabaseUrl, CFG.supabaseKey);
-const app = document.getElementById('app');
-
-/* ---------- small helpers ---------- */
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const store = {
-  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
-};
-const session = {
-  get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch {} }
-};
-const cedi = (n) => 'GH₵ ' + Number(n).toLocaleString('en-GH', { maximumFractionDigits: 0 });
-const UNIT = { per_event: 'per event', per_head: 'per head', per_item: 'per item', per_day: 'per day', per_night: 'per night', per_hour: 'per hour' };
-const priceText = (l) => {
-  if (l.price_min == null && l.price_max == null) return 'Price on request';
-  const range = l.price_min != null && l.price_max != null && l.price_min !== l.price_max
-    ? `${cedi(l.price_min)} – ${cedi(l.price_max)}` : `From ${cedi(l.price_min ?? l.price_max)}`;
-  return range + (l.price_unit ? ` ${UNIT[l.price_unit]}` : '');
-};
+let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
 const waLink = (l) => `https://wa.me/${waNumber(l.whatsapp)}?text=${encodeURIComponent(`Hello ${l.business_name}, I found you on Events Hub. I'd like to ask about your services for an event.`)}`;
-const photoUrl = (path) => path?.startsWith('sample:') ? null : path ? `${CFG.supabaseUrl}/storage/v1/object/public/listing-photos/${path}` : null;
 const isDemo = () => session.get('eh-demo') === '1';
 const setDemo = (on) => { session.set('eh-demo', on ? '1' : null); document.getElementById('demo-banner').hidden = !on; };
 
-const ICONS = {
-  venues: '🏛️', planners: '📋', rentals: '⛺', 'food-drinks': '🍲', decorators: '🎀', clothing: '🧵', beauty: '💄',
-  accommodation: '🏨', transport: '🚌', 'media-pr': '📻', 'photo-video': '📸', entertainment: '🥁', ushers: '🤝',
-  printing: '🖨️', power: '⚡', security: '🛡️', sanitation: '🚻', funeral: '🕊️', finance: '💳', other: '✨'
-};
-
-function placeholder(name, seed = 0) {
-  const palettes = [['#0b5d3b', '#e9a722'], ['#7a2e1f', '#f2c14e'], ['#1e4fa3', '#e9a722'], ['#5b3a8a', '#f2c14e'], ['#0b5d3b', '#b3261e']];
-  const [a, b] = palettes[Math.abs(seed) % palettes.length];
-  const initials = String(name).split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(name)}" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%">
-    <rect width="120" height="120" fill="${a}"/><rect y="96" width="120" height="8" fill="${b}"/><rect y="106" width="120" height="3" fill="${b}" opacity=".6"/>
-    <text x="60" y="66" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="36" font-weight="700" fill="#fff">${esc(initials)}</text></svg>`;
+async function updateAccountLink() {
+  const u = await me();
+  const a = document.getElementById('account-link');
+  if (!a) return;
+  a.textContent = u ? 'My account' : 'Sign in';
+  a.href = u ? '#/me' : '#/signin';
 }
-const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
-
-/* ---------- reference data ---------- */
-let REF = null;
-async function ref() {
-  if (REF) return REF;
-  const [towns, cats] = await Promise.all([
-    db.from('towns').select('id,name,slug,lat,lng,district_id,districts(name,slug)').eq('active', true).order('name'),
-    db.from('categories').select('id,parent_id,name,slug,tier,sort').eq('active', true).order('sort')
-  ]);
-  if (towns.error || cats.error) throw (towns.error || cats.error);
-  const top = cats.data.filter((c) => !c.parent_id);
-  REF = {
-    towns: towns.data,
-    townBySlug: Object.fromEntries(towns.data.map((t) => [t.slug, t])),
-    cats: cats.data,
-    top,
-    catBySlug: Object.fromEntries(cats.data.map((c) => [c.slug, c])),
-    catById: Object.fromEntries(cats.data.map((c) => [c.id, c]))
-  };
-  return REF;
-}
-function townOptions(selected) {
-  const groups = {};
-  REF.towns.forEach((t) => { (groups[t.districts.name] ||= []).push(t); });
-  return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([d, ts]) =>
-    `<optgroup label="${esc(d)}">${ts.map((t) => `<option value="${esc(t.slug)}" ${t.slug === selected ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</optgroup>`).join('');
-}
-function catOptions(selected, allLabel = 'All categories') {
-  return `<option value="all">${allLabel}</option>` + REF.top.map((c) =>
-    `<option value="${esc(c.slug)}" ${c.slug === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-}
+db.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') { clearMe(); updateAccountLink(); }
+  if (event === 'PASSWORD_RECOVERY') go('/reset');
+});
 
 /* ---------- router ---------- */
 function parseHash() {
@@ -90,8 +34,12 @@ async function render() {
   document.querySelector('.sticky-cta')?.remove();
   document.getElementById('demo-banner').hidden = !isDemo();
   try {
-    await ref();
+    REF = await ref();
     if (parts.length === 0) return home();
+    if (['signin', 'me', 'reset'].includes(parts[0])) {
+      const dash = await import('./dash.js?v=6');
+      return dash.route(parts, params);
+    }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
     if (parts[0] === 't' && parts[1] && parts[2]) return results(parts[1], parts[2], params);
     if (parts[0] === 'l' && parts[1]) return listingPage(parts[1]);
@@ -330,7 +278,7 @@ async function listingPage(slug) {
     if (l) l = { ...l, town: REF.townBySlug[l.town_slug], categories: l.cats.map((s) => REF.catBySlug[s]).filter(Boolean), photos: [], reviews: l.reviews || [] };
   } else {
     const { data, error } = await db.from('listings')
-      .select('*, towns(name,slug,districts(name)), listing_categories(categories(name,slug,parent_id)), listing_photos(path,sort), reviews(rating,comment,event_type,event_month,reply,created_at)')
+      .select('*, towns(name,slug,districts(name)), listing_categories(categories(name,slug,parent_id)), listing_photos(path,sort), reviews(id,author_id,rating,comment,event_type,event_month,reply,created_at)')
       .eq('slug', slug).maybeSingle();
     if (error) throw error;
     if (data) l = { ...data, town: data.towns, categories: data.listing_categories.map((x) => x.categories), photos: data.listing_photos.sort((a, b) => a.sort - b.sort), reviews: data.reviews };
@@ -347,9 +295,17 @@ async function listingPage(slug) {
   const photos = l.photos.length ? l.photos.map((p) => `<div><img src="${esc(photoUrl(p.path))}" alt="${esc(l.business_name)} photo" loading="lazy"></div>`).join('')
     : `<div>${placeholder(l.business_name, hash(l.slug))}</div>`;
   const coverage = { town: `${l.town.name} only`, district: `All of ${l.town.districts.name}`, region: 'Anywhere in Ashanti', nationwide: 'Anywhere in Ghana' }[l.coverage];
+  const user = slug.startsWith('sample-') ? null : await me();
+  const isOwner = user && user.id === l.owner_id;
+  const myReview = user ? l.reviews.find((r) => r.author_id === user.id) : null;
+  const outdated = l.last_confirmed_at && (Date.now() - new Date(l.last_confirmed_at)) > 210 * 864e5;
+  const statusNote = l.status && l.status !== 'live'
+    ? `<div class="notice" style="margin:12px 0">This listing is <b>${esc(l.status)}</b> and not visible to the public yet.${l.reject_reason ? ' Reason: ' + esc(l.reject_reason) : ''}</div>` : '';
 
   app.innerHTML = `<div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › <a href="#/t/${esc(l.town.slug)}">${esc(l.town.name)}</a> › ${esc(l.business_name)}</div>
+    ${statusNote}
+    ${outdated ? '<div class="notice" style="margin:12px 0;background:var(--gold-soft)">These details may be outdated. Confirm with the supplier before you book.</div>' : ''}
     <div class="gallery">${photos}</div>
     <div class="detail">
       <div>
@@ -373,8 +329,24 @@ async function listingPage(slug) {
           ${l.reviews.length ? l.reviews.map((r) => `<div class="review"><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
             ${r.event_type ? `<span class="muted"> · ${esc(r.event_type)}</span>` : ''}<p style="margin:4px 0 0">${esc(r.comment || '')}</p>
             ${r.reply ? `<p class="muted" style="margin:6px 0 0;padding-left:10px;border-left:3px solid var(--line)"><b>Reply:</b> ${esc(r.reply)}</p>` : ''}</div>`).join('')
-            : '<p class="muted" style="margin:0">No reviews yet. Reviews open soon for people who have used this supplier.</p>'}
+            : '<p class="muted" style="margin:0">No reviews yet.</p>'}
+          ${slug.startsWith('sample-') || isOwner ? '' : user ? `
+            <form id="review-form" class="form" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+              <b>${myReview ? 'Edit your review' : 'Used this supplier? Leave a review'}</b>
+              <div class="field"><label for="rv-rating">Rating</label><select id="rv-rating" required>${[5, 4, 3, 2, 1].map((n) => `<option value="${n}" ${myReview?.rating === n ? 'selected' : ''}>${'★'.repeat(n)} (${n})</option>`).join('')}</select></div>
+              <div class="field"><label for="rv-type">Your event</label><input type="text" id="rv-type" maxlength="60" placeholder="Wedding, funeral, birthday…" value="${esc(myReview?.event_type || '')}"></div>
+              <div class="field"><label for="rv-comment">Your review</label><textarea id="rv-comment" maxlength="500" rows="3" required>${esc(myReview?.comment || '')}</textarea></div>
+              <button class="btn" type="submit">${myReview ? 'Update review' : 'Post review'}</button>
+            </form>`
+          : `<p style="margin:14px 0 0"><a href="#/signin" data-return>Sign in to leave a review</a></p>`}
         </div>
+        ${slug.startsWith('sample-') ? '' : `<p style="margin:14px 0 0;font-size:.9rem"><a href="#" id="report-link" class="muted">Report this listing</a></p>
+        <form id="report-form" class="form panel" hidden style="margin-top:8px">
+          <b>What's wrong?</b>
+          <select id="rp-reason" required><option value="wrong_number">Wrong phone number</option><option value="closed">Business has closed</option><option value="fake">Fake business</option><option value="scam">Scam or fraud</option><option value="offensive">Offensive content</option><option value="other">Something else</option></select>
+          <textarea id="rp-note" rows="2" maxlength="300" placeholder="Tell us more (optional)"></textarea>
+          <button class="btn" type="submit">Send report</button>
+        </form>`}
       </div>
       <aside class="panel contact-panel">
         <h3>Contact ${esc(l.contact_name || l.business_name)}</h3>
@@ -391,6 +363,30 @@ async function listingPage(slug) {
     <a class="btn btn-wa" href="${esc(waLink(l))}" target="_blank" rel="noopener" data-tap="whatsapp" data-id="${esc(l.id)}">WhatsApp</a>
     <a class="btn btn-ghost" href="tel:${esc(l.phone)}" data-tap="call" data-id="${esc(l.id)}">Call</a></div>`);
   bindTaps(document.body);
+  document.querySelectorAll('[data-return]').forEach((a) => a.addEventListener('click', () => session.set('eh-return', location.hash)));
+  document.getElementById('review-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const row = { listing_id: l.id, author_id: user.id, rating: Number(document.getElementById('rv-rating').value),
+      event_type: document.getElementById('rv-type').value.trim() || null, comment: document.getElementById('rv-comment').value.trim() };
+    const { error } = myReview ? await db.from('reviews').update(row).eq('id', myReview.id) : await db.from('reviews').insert(row);
+    if (error) return toast('Sorry, your review could not be saved.', true);
+    toast('Thank you — your review is posted.');
+    render();
+  });
+  document.getElementById('report-link')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!(await me())) { session.set('eh-return', location.hash); return go('/signin'); }
+    document.getElementById('report-form').hidden = false;
+  });
+  document.getElementById('report-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const u = await me();
+    const { error } = await db.from('reports').insert({ listing_id: l.id, reporter_id: u.id,
+      reason: document.getElementById('rp-reason').value, note: document.getElementById('rp-note').value.trim() || null });
+    if (error) return toast('Sorry, the report could not be sent.', true);
+    e.target.hidden = true;
+    toast('Thank you. A moderator will check this listing.');
+  });
   document.getElementById('share').addEventListener('click', async (e) => {
     logTap(l.id, 'share');
     const url = location.href;
@@ -486,7 +482,8 @@ function listPage() {
       <li><b>First 10 suppliers in each town</b> get 3 months featured free and a Founding supplier badge.</li>
       <li><b>Get verified:</b> an Events Hub field agent visits you and adds the Verified badge.</li>
     </ul>
-    <div class="notice">Online sign-up opens very soon. Our field agents are already visiting suppliers in Ejisu and Juaben to register them in person.</div>
+    <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and a moderator will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
+    <p class="muted">Prefer help? Our field agents are visiting suppliers in Ejisu and Juaben to register them in person.</p>
     <h2 style="margin-top:24px">Featured listing prices</h2>
     <p class="muted">Optional. Featured suppliers appear at the top of their town and category (3 spots, shared in rotation).</p>
     <div id="prices" class="panel">Loading…</div>
@@ -532,4 +529,5 @@ setTimeout(() => {
   if (app.querySelector('.loading')) app.innerHTML = `<div class="wrap section"><div class="empty"><h3>Still loading…</h3><p class="muted">Your connection seems slow.</p><button class="btn" onclick="location.reload()">Try again</button></div></div>`;
 }, 20000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+updateAccountLink();
 render();
