@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=14';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=15';
 
 let REF;
 const BASE = location.origin + location.pathname;
