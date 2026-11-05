@@ -68,7 +68,7 @@ async function ref() {
 function townOptions(selected) {
   const groups = {};
   REF.towns.forEach((t) => { (groups[t.districts.name] ||= []).push(t); });
-  return Object.entries(groups).map(([d, ts]) =>
+  return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([d, ts]) =>
     `<optgroup label="${esc(d)}">${ts.map((t) => `<option value="${esc(t.slug)}" ${t.slug === selected ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</optgroup>`).join('');
 }
 function catOptions(selected, allLabel = 'All categories') {
@@ -526,5 +526,9 @@ function sampleSearch(town, scope, cat, q, verified) {
 }
 
 /* ---------- start ---------- */
+// If the first load is very slow (weak network), offer a retry instead of an endless "Loading…"
+setTimeout(() => {
+  if (app.querySelector('.loading')) app.innerHTML = `<div class="wrap section"><div class="empty"><h3>Still loading…</h3><p class="muted">Your connection seems slow.</p><button class="btn" onclick="location.reload()">Try again</button></div></div>`;
+}, 20000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render();

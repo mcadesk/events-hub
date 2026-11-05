@@ -168,7 +168,7 @@ body.has-cta { padding-bottom: 70px; }
 .footer p { margin: 6px 0 0; max-width: 46ch; font-size: .92rem; }
 .footer nav { display: grid; gap: 8px; }
 .footer a { color: #f3e6c4; text-decoration: none; }
-.footer-note { max-width: 1040px; margin: 20px auto 0; font-size: .82rem; color: #9f988a; border-top: 1px solid #3a362e; padding-top: 14px; }
+.footer .footer-note { max-width: 1040px; margin: 20px auto 0; font-size: .82rem; color: #9f988a; border-top: 1px solid #3a362e; padding-top: 14px; }
 .loading { padding: 60px 16px; text-align: center; color: var(--muted); }
 .skeleton { background: linear-gradient(90deg, #efe8da 25%, #f6f1e7 37%, #efe8da 63%); background-size: 400% 100%; animation: sk 1.2s ease infinite; border-radius: var(--radius); height: 120px; }
 @keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
