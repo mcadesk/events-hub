@@ -225,3 +225,6 @@ body.has-cta { padding-bottom: 70px; }
 .offer-group .checks { padding: 0 12px 12px; }
 .offer-count { color: var(--green); font-size: .85rem; }
 .checks .check { white-space: normal; padding: 6px 0; }
+.topnav a { white-space: nowrap; }
+.show-xs { display: none; }
+@media (max-width: 420px) { .hide-xs { display: none; } .show-xs { display: inline; } .brand { gap: 7px; } .brand-mark { width: 30px; height: 30px; } }
