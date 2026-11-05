@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=15';
-import { SAMPLE_LISTINGS } from './sample.js?v=15';
+  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=16';
+import { SAMPLE_LISTINGS } from './sample.js?v=16';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=15');
+      const dash = await import('./dash.js?v=16');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -463,14 +463,10 @@ function aboutPage() {
   app.innerHTML = `<div class="wrap section prose">
     ${banner('about', 'About NHYIAMU')}
     <p>NHYIAMU is a free directory that helps families, churches, schools and businesses in Ejisu and Juaben find everything they need for an event — and helps local suppliers get found.</p>
-    <p>NHYIAMU is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers, and support our foundation.</p>
-    <h2>Our foundation: OBREMPON</h2>
-    <p>Every child is a gift, and every child deserves a bright future. Money left after running NHYIAMU goes to OBREMPON, our foundation (launching soon), which works in two ways:</p>
-    <h3>Standing with families</h3>
-    <p>OBREMPON stands with mothers and fathers who faced a difficult pregnancy and, with encouragement and support, chose to welcome their child — helping these families give their children care, schooling and a good start in life.</p>
-    <h3>OBREMPON Brigade</h3>
-    <p>A music brigade for children and young people aged 6 to 19. Instead of idling after school, members learn to play musical instruments, perform at concerts, and are guided by tutors, mentors and role models who teach them to live responsibly.</p>
-    <p>The Brigade also helps members plan their future after senior high school — through scholarships for further education and guidance towards honourable careers, including the security services.</p>
+    <p>NHYIAMU is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers.</p>
+    <h2>Where the money goes</h2>
+    <p>Money left after running NHYIAMU supports the projects and foundation programmes of MEYE CATHOLIC ASOREBA.</p>
+    <p>Full details of every project and programme will be on the MEYE CATHOLIC ASOREBA website, coming soon.</p>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
   </div>`;
 }
