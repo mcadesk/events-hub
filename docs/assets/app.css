@@ -214,3 +214,12 @@ body.has-cta { padding-bottom: 70px; }
 .pw-wrap input { padding-right: 70px !important; }
 .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: var(--green-soft); color: var(--green);
   font-weight: 600; font-size: .85rem; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.offer-group { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: #fff; }
+.offer-group summary { cursor: pointer; padding: 11px 12px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; list-style: none; }
+.offer-group summary::-webkit-details-marker { display: none; }
+.offer-group summary::before { content: '+'; color: var(--green); font-weight: 700; margin-right: 8px; }
+.offer-group[open] summary::before { content: '–'; }
+.offer-group summary span:first-child { flex: 1; }
+.offer-group .checks { padding: 0 12px 12px; }
+.offer-count { color: var(--green); font-size: .85rem; }
+.checks .check { white-space: normal; padding: 6px 0; }

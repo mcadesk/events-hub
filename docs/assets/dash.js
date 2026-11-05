@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions,
-  subcatOptions, me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=8';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=9';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -303,12 +303,17 @@ async function editor(u, id, asAgent) {
   <form class="form" id="ed" style="max-width:760px">
     <fieldset><legend>The business</legend>
       <div class="field"><label for="e-name">Business name</label><input type="text" id="e-name" required maxlength="80" value="${v('business_name')}"></div>
-      <div class="form-grid two">
-        <div class="field"><label for="e-c1">Main category</label><select id="e-c1" required>${subcatOptions(cats[0], 'Choose…')}</select></div>
-        <div class="field"><label for="e-c2">Second category (optional)</label><select id="e-c2">${subcatOptions(cats[1], 'None')}</select></div>
-        <div class="field"><label for="e-c3">Third category (optional)</label><select id="e-c3">${subcatOptions(cats[2], 'None')}</select></div>
-      </div>
       <div class="field"><label for="e-desc">Describe what you offer</label><textarea id="e-desc" rows="4" maxlength="500" required>${v('description')}</textarea><span class="hint">Up to 500 characters. Mention what makes you good.</span></div>
+    </fieldset>
+    <fieldset><legend>What you offer</legend>
+      <span class="hint">Tick everything you offer — as many as you like. Open a group to see its options.</span>
+      <div id="offer">${REF.top.map((t) => {
+        const subs = REF.cats.filter((c) => c.parent_id === t.id);
+        const n = subs.filter((c) => cats.includes(c.id)).length;
+        return `<details class="offer-group" ${n ? 'open' : ''}><summary><span>${esc(t.name)}</span><span class="offer-count" data-count="${t.id}">${n ? `${n} ticked` : ''}</span></summary>
+          <div class="checks">${subs.map((c) => `<label class="check"><input type="checkbox" name="offer" value="${c.id}" data-top="${t.id}" ${cats.includes(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('')}</div></details>`;
+      }).join('')}</div>
+      <span class="hint" id="offer-total">${cats.length ? `${cats.length} ticked` : 'Nothing ticked yet'}</span>
     </fieldset>
     <fieldset><legend>Contact</legend>
       <div class="form-grid two">
@@ -359,12 +364,18 @@ async function editor(u, id, asAgent) {
     <div id="ed-msg"></div>
   </form>`);
 
-  // Refresh category-specific fields when categories change
-  ['e-c1', 'e-c2', 'e-c3'].forEach((sid) => document.getElementById(sid).addEventListener('change', () => {
+  // Update counts and category-specific fields when offerings are ticked
+  const ticked = () => [...document.querySelectorAll('input[name=offer]:checked')].map((c) => Number(c.value));
+  document.getElementById('offer').addEventListener('change', () => {
+    const ids = ticked();
+    REF.top.forEach((t) => {
+      const n = ids.filter((id) => REF.catById[id]?.parent_id === t.id).length;
+      const el = document.querySelector(`[data-count="${t.id}"]`); if (el) el.textContent = n ? `${n} ticked` : '';
+    });
+    document.getElementById('offer-total').textContent = ids.length ? `${ids.length} ticked` : 'Nothing ticked yet';
     const current = collectExtra();
-    const tops = ['e-c1', 'e-c2', 'e-c3'].map((x) => document.getElementById(x).value).filter(Boolean).map(topOf);
-    document.getElementById('extra-wrap').innerHTML = extraFields(tops, { ...(l?.extra || {}), ...current });
-  }));
+    document.getElementById('extra-wrap').innerHTML = extraFields(ids.map(topOf).filter(Boolean), { ...(l?.extra || {}), ...current });
+  });
 
   let action = 'draft';
   document.querySelectorAll('#ed [type=submit]').forEach((b) => b.addEventListener('click', () => { action = b.dataset.action; }));
@@ -374,7 +385,8 @@ async function editor(u, id, asAgent) {
     const phone = toGhanaPhone(document.getElementById('e-phone').value);
     const whatsapp = toGhanaPhone(document.getElementById('e-wa').value);
     if (!phone || !whatsapp) return (msg.innerHTML = '<div class="notice error">Please enter valid Ghana phone numbers, e.g. 024 123 4567.</div>');
-    const catIds = [...new Set(['e-c1', 'e-c2', 'e-c3'].map((x) => document.getElementById(x).value).filter(Boolean).map(Number))];
+    const catIds = [...new Set(ticked())];
+    if (!catIds.length) return (msg.innerHTML = '<div class="notice error">Please tick at least one thing you offer.</div>');
     const num = (x) => (document.getElementById(x).value === '' ? null : Number(document.getElementById(x).value));
     const pmin = num('e-pmin'), pmax = num('e-pmax');
     if (pmin != null && pmax != null && pmin > pmax) return (msg.innerHTML = '<div class="notice error">"From" price should not be more than "Up to" price.</div>');
