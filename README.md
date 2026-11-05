@@ -1,6 +1,6 @@
 # Events Hub
 
-Free directory of event suppliers in Ejisu and Juaben Municipalities (Ashanti, Ghana). A charity project of MCA Desk.
+Free directory of event suppliers in Ejisu and Juaben Municipalities (Ashanti, Ghana). A project of MEYE CATHOLIC ASOREBA.
 
 - `docs/` — the website, served by GitHub Pages (installable web app). Plain HTML, CSS and JavaScript; no build step.
 - `supabase/` — database setup scripts, run in order in the Supabase SQL Editor.
