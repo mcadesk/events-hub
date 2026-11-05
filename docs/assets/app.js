@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SAMPLE_LISTINGS } from './sample.js?v=4';
+import { SAMPLE_LISTINGS } from './sample.js?v=5';
 
 const CFG = window.EVENTS_HUB;
 const db = createClient(CFG.supabaseUrl, CFG.supabaseKey);
@@ -469,9 +469,9 @@ function aboutPage() {
     <h1>About Events Hub</h1>
     <p>Events Hub is a free directory that helps families, churches, schools and businesses in Ejisu and Juaben find everything they need for an event — and helps local suppliers get found.</p>
     <p>Events Hub is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers, and support our foundation.</p>
-    <h2>Our foundation</h2>
-    <p>Every child is a gift. Our foundation stands with mothers and fathers who faced a difficult pregnancy and, with encouragement and support, chose to welcome their child.</p>
-    <p>We help these families with what their children need to thrive — care, schooling and a good start in life. Money left after running Events Hub goes to this work.</p>
+    <h2>Our foundation: OBREMPON</h2>
+    <p>Every child is a gift. OBREMPON, our foundation (launching soon), stands with mothers and fathers who faced a difficult pregnancy and, with encouragement and support, chose to welcome their child.</p>
+    <p>We help these families with what their children need to thrive — care, schooling and a good start in life. Money left after running Events Hub goes to OBREMPON.</p>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
   </div>`;
 }
