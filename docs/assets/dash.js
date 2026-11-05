@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
-import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=12';
+import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=13';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -310,7 +310,7 @@ async function editor(u, id, asAgent) {
       <div id="offer">${REF.top.map((t) => {
         const subs = REF.cats.filter((c) => c.parent_id === t.id);
         const n = subs.filter((c) => cats.includes(c.id)).length;
-        return `<details class="offer-group" ${n ? 'open' : ''}><summary><span>${esc(t.name)}</span><span class="offer-count" data-count="${t.id}">${n ? `${n} ticked` : ''}</span></summary>
+        return `<details class="offer-group" ${n ? 'open' : ''}><summary>${catPhoto(t.slug) ? `<img class="offer-thumb" src="${catPhoto(t.slug, 96, 96)}" alt="" loading="lazy" width="40" height="40">` : ''}<span>${esc(t.name)}</span><span class="offer-count" data-count="${t.id}">${n ? `${n} ticked` : ''}</span></summary>
           <div class="checks">${subs.map((c) => `<label class="check"><input type="checkbox" name="offer" value="${c.id}" data-top="${t.id}" ${cats.includes(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('')}</div></details>`;
       }).join('')}</div>
       <span class="hint" id="offer-total">${cats.length ? `${cats.length} ticked` : 'Nothing ticked yet'}</span>

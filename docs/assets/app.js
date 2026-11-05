@@ -1,6 +1,6 @@
-import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto,
-  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=12';
-import { SAMPLE_LISTINGS } from './sample.js?v=12';
+import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
+  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=13';
+import { SAMPLE_LISTINGS } from './sample.js?v=13';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=12');
+      const dash = await import('./dash.js?v=13');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -165,8 +165,7 @@ async function results(townSlug, catSlug, params) {
 
   app.innerHTML = `<div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › <a href="#/t/${esc(town.slug)}">${esc(town.name)}</a> › ${esc(title)}</div>
-    ${cat && catPhoto(cat.slug) ? `<div class="cat-banner" style="background-image:url('${catPhoto(cat.slug, 1200, 360)}')"><h1>${esc(title)} <span>in ${esc(town.name)}</span></h1></div>`
-      : `<h1>${esc(title)} <span class="muted" style="font-size:.6em">in ${esc(town.name)}</span></h1>`}
+    ${banner(cat ? cat.slug : 'hero', `${esc(title)} <span>in ${esc(town.name)}</span>`)}
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Which suppliers to show">
         ${scopeBtn('area', 'This area')}${scopeBtn('region', 'Ashanti')}${scopeBtn('all', 'All suppliers')}
@@ -402,7 +401,7 @@ async function financePage() {
   const { data: partners } = await db.from('loan_partners').select('id,name,phone,email,towns,products').eq('active', true).order('name');
   const town = store.get('eh-town', CFG.defaultTown);
   app.innerHTML = `<div class="wrap section">
-    <h1>Finance your event</h1>
+    ${banner('finance', 'Finance your event')}
     <p class="muted prose">Need help paying for a wedding, funeral or celebration? Our partner credit unions, banks and savings &amp; loans offer event loans. Send one enquiry and the partner will contact you.</p>
     <div class="notice" style="margin:14px 0">Loans are offered and approved by the partner institution alone. NHYIAMU is not a lender and never handles your money.</div>
     ${partners && partners.length ? `
@@ -446,7 +445,7 @@ async function financePage() {
 function permitsPage() {
   document.title = 'Event permits guide — NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
-    <h1>Event permits guide</h1>
+    ${banner('permits', 'Event permits guide')}
     <p class="muted">For public events in Ejisu and Juaben Municipalities. Small private events at home or in a hall usually need fewer of these — ask the venue.</p>
     <ol class="steps">
       <li><b>Notify the Ghana Police Service</b><br>Public events must be notified to the police under the Public Order Act, 1994 (Act 491). Visit the police station nearest your venue well before the event. They can also arrange security and traffic control.</li>
@@ -462,7 +461,7 @@ function permitsPage() {
 function aboutPage() {
   document.title = 'About NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
-    <h1>About NHYIAMU</h1>
+    ${banner('about', 'About NHYIAMU')}
     <p>NHYIAMU is a free directory that helps families, churches, schools and businesses in Ejisu and Juaben find everything they need for an event — and helps local suppliers get found.</p>
     <p>NHYIAMU is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers, and support our foundation.</p>
     <h2>Our foundation: OBREMPON</h2>
@@ -475,7 +474,7 @@ function aboutPage() {
 function listPage() {
   document.title = 'List your business free — NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
-    <h1>List your business free</h1>
+    ${banner('list', 'List your business free')}
     <p>If you supply anything for events — venues, canopies and chairs, food and drinks, decor, cloth and sewing, makeup, sound, photos, transport and more — NHYIAMU helps people near you find you and contact you on WhatsApp.</p>
     <ul>
       <li><b>Free forever</b> for a basic listing with photos, prices and your WhatsApp.</li>
