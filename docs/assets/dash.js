@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf } from './core.js?v=28';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=29';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -234,7 +234,7 @@ async function home(u) {
       const ph = (l.listing_photos || []).sort((a, b) => a.sort - b.sort)[0];
       return `<div class="row">
         <div class="row-top"><div style="display:flex;gap:10px;align-items:center">
-          <div style="width:52px;height:52px;border-radius:10px;overflow:hidden;flex:none">${ph ? `<img src="${esc(photoUrl(ph.path))}" alt="" style="width:100%;height:100%;object-fit:cover">` : placeholder(l.business_name, hash(l.slug))}</div>
+          <div style="width:52px;height:52px;border-radius:10px;overflow:hidden;flex:none">${ph ? thumbImg(ph.path).replace('<img ', '<img style="width:100%;height:100%;object-fit:cover" ') : placeholder(l.business_name, hash(l.slug))}</div>
           <div><b>${esc(l.business_name)}</b><br><span class="muted" style="font-size:.88rem">${esc(l.towns?.name || '')}</span></div></div>
           <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding">Founding</span>' : ''}</div></div>
         ${l.status === 'rejected' && l.reject_reason ? `<div class="notice error">Not approved: ${esc(l.reject_reason)}. Please fix and submit again.</div>` : ''}
@@ -470,10 +470,8 @@ async function editor(u, id, asAgent) {
     for (const f of files) {
       out.innerHTML = `<div class="notice">Uploading ${done + 1} of ${files.length}…</div>`;
       try {
-        const blob = await shrink(f);
         const path = `${u.id}/${l.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-        const up = await db.storage.from('listing-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-        if (up.error) throw up.error;
+        await uploadWithThumb(path, f, 1080, 420);
         const { error } = await db.from('listing_photos').insert({ listing_id: l.id, path, sort: photos.length + done });
         if (error) throw error;
         done++;
@@ -483,7 +481,7 @@ async function editor(u, id, asAgent) {
     editor(u, l.id, asAgent);
   });
   document.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
-    await db.storage.from('listing-photos').remove([b.dataset.path]);
+    await db.storage.from('listing-photos').remove([b.dataset.path, thumbPath(b.dataset.path)]);
     const { error } = await db.from('listing_photos').delete().eq('id', b.dataset.del);
     if (error) return fail(error, 'Removing the photo');
     b.parentElement.remove(); photos = photos.filter((p) => p.id !== b.dataset.del);
@@ -500,6 +498,15 @@ function collectExtra() {
   return o;
 }
 // Resize to max 1280px and compress to JPEG (keeps uploads around 150–300 KB)
+// Saves the photo (max px on the long side) plus a small copy for lists. Photos never change once saved, so phones may keep them for a year.
+async function uploadWithThumb(path, file, max, thumbMax) {
+  const [big, small] = await Promise.all([shrink(file, max, 0.72), shrink(file, thumbMax, 0.68)]);
+  const opts = { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false };
+  const up = await db.storage.from('listing-photos').upload(path, big, opts);
+  if (up.error) throw up.error;
+  await db.storage.from('listing-photos').upload(thumbPath(path), small, opts);
+}
+
 async function shrink(file, max = 1280, quality = 0.75) {
   const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Not an image')); i.src = URL.createObjectURL(file); });
   const scale = Math.min(1, max / Math.max(img.width, img.height));
@@ -577,10 +584,8 @@ async function flyerForm(u, id) {
       const file = document.getElementById('fl-img').files[0];
       if (file) {
         msg.innerHTML = '<div class="notice">Uploading the flyer…</div>';
-        const blob = await shrink(file, 1600, 0.78);
         image_path = `${u.id}/flyers/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-        const up = await db.storage.from('listing-photos').upload(image_path, blob, { contentType: 'image/jpeg' });
-        if (up.error) throw up.error;
+        await uploadWithThumb(image_path, file, 1400, 520);
       }
       const row = {
         town_id: Number(document.getElementById('fl-town').value), title: document.getElementById('fl-title').value.trim(),

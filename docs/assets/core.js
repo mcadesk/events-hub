@@ -26,6 +26,12 @@ export const priceText = (l) => {
   return range + (l.price_unit ? ` ${UNIT[l.price_unit]}` : '');
 };
 export const photoUrl = (path) => path?.startsWith('sample:') ? null : path ? `${CFG.supabaseUrl}/storage/v1/object/public/listing-photos/${path}` : null;
+// Small copy of each photo (saved next to it as *_t.jpg) for lists and tiles; falls back to the full photo for older uploads
+export const thumbPath = (path) => path ? path.replace(/\.jpg$/, '_t.jpg') : path;
+export const thumbImg = (path, alt = '') => {
+  const full = photoUrl(path); if (!full) return '';
+  return `<img src="${esc(photoUrl(thumbPath(path)))}" data-full="${esc(full)}" onerror="this.onerror=null;this.src=this.dataset.full" alt="${esc(alt)}" loading="lazy">`;
+};
 export const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
 
 // Ghana phone: accepts 024 123 4567, 0241234567, 233241234567, +233 24 123 4567

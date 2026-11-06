@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=28';
-import { SAMPLE_LISTINGS } from './sample.js?v=28';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=29';
+import { SAMPLE_LISTINGS } from './sample.js?v=29';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=28');
+      const dash = await import('./dash.js?v=29');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -254,7 +254,7 @@ async function results(townSlug, catSlug, params) {
 function card(l) {
   const img = photoUrl(l.photo);
   return `<article class="card ${l.featured_level === 2 ? 'is-top' : l.featured ? 'is-featured' : ''}">
-    <a class="card-photo" href="#/l/${esc(l.slug)}" aria-hidden="true" tabindex="-1">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : placeholder(l.business_name, hash(l.slug))}</a>
+    <a class="card-photo" href="#/l/${esc(l.slug)}" aria-hidden="true" tabindex="-1">${img ? thumbImg(l.photo) : placeholder(l.business_name, hash(l.slug))}</a>
     <div class="card-body">
       <a class="card-title" href="#/l/${esc(l.slug)}">${esc(l.business_name)}</a>
       <div class="card-meta">${esc(l.town_name)}${l.rating ? ` · <span class="stars">★</span> ${l.rating} (${l.review_count})` : ''}${l.distance_km != null && l.travels ? ` · ${Math.round(l.distance_km)} km away` : ''}</div>
@@ -570,7 +570,7 @@ async function flyerSection(town, el) {
   const list = data || [];
   el.innerHTML = `<div class="section-head"><h2>Happening near ${esc(town.name)}</h2><a href="#/me/flyer">Post a flyer</a></div>
     ${list.length ? `<div class="flyers">${list.map((f) => `<a class="flyer" href="#/f/${f.id}">
-        <div class="flyer-img">${f.image_path ? `<img src="${esc(photoUrl(f.image_path))}" alt="" loading="lazy">` : placeholder(f.title, hash(f.id))}</div>
+        <div class="flyer-img">${f.image_path ? thumbImg(f.image_path) : placeholder(f.title, hash(f.id))}</div>
         <div class="flyer-body"><b>${esc(f.title)}</b><span class="muted">${niceDate(f.event_date)}${f.event_time ? ' · ' + esc(f.event_time) : ''}</span><span class="muted">${esc(f.venue_name)}, ${esc(f.town_name)}</span></div>
       </a>`).join('')}</div>`
     : `<div class="cta-band"><div><b>Hosting a programme?</b><br><span class="muted">Post your flyer with directions for one week, seen by people in ${esc(town.name)} and nearby towns${st.flyer_price ? ` — GH₵ ${esc(st.flyer_price)} a week, free with a Top spot, Featured or Founding supplier place, or for donors of GH₵ ${esc(st.donor_flyer_min || '100')} and above` : ''}.</span></div><a class="btn btn-gold" href="#/me/flyer">Post a flyer</a></div>`}`;
@@ -584,7 +584,7 @@ async function supportersSection(town, el) {
   el.innerHTML = `<div class="section-head" style="margin-top:18px"><h2>Recommended near ${esc(town.name)}</h2><a href="#/donate">♥ Our supporters</a></div>
     <p class="muted" style="margin:-6px 0 10px;font-size:.92rem">These businesses donate to the projects of MEYE CATHOLIC ASOREBA. Thank you!</p>
     <div class="flyers">${list.map((s) => `<a class="flyer" href="#/l/${esc(s.slug)}">
-      <div class="flyer-img sup-img">${s.photo ? `<img src="${esc(photoUrl(s.photo))}" alt="" loading="lazy">` : placeholder(s.business_name, hash(s.slug))}</div>
+      <div class="flyer-img sup-img">${s.photo ? thumbImg(s.photo) : placeholder(s.business_name, hash(s.slug))}</div>
       <div class="flyer-body"><b>${esc(s.business_name)}</b><span class="muted">${esc(s.category || '')}</span><span class="muted">${esc(s.town_name)}</span><span class="badge badge-supporter">♥ Supporter</span></div>
     </a>`).join('')}</div>`;
 }
