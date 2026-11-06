@@ -25,7 +25,10 @@ export const priceText = (l) => {
     ? `${cedi(l.price_min)} – ${cedi(l.price_max)}` : `From ${cedi(l.price_min ?? l.price_max)}`;
   return range + (l.price_unit ? ` ${UNIT[l.price_unit]}` : '');
 };
-export const photoUrl = (path) => path?.startsWith('sample:') ? null : path ? `${CFG.supabaseUrl}/storage/v1/object/public/listing-photos/${path}` : null;
+// Photos saved since Nov 2026 live in Cloudflare R2 (path starts with "r2/"); older ones in Supabase storage
+export const photoUrl = (path) => !path || path.startsWith('sample:') ? null
+  : path.startsWith('r2/') ? `${CFG.photoHost}/${path.slice(3)}`
+  : `${CFG.supabaseUrl}/storage/v1/object/public/listing-photos/${path}`;
 // Small copy of each photo (saved next to it as *_t.jpg) for lists and tiles; falls back to the full photo for older uploads
 export const thumbPath = (path) => path ? path.replace(/\.jpg$/, '_t.jpg') : path;
 export const thumbImg = (path, alt = '') => {

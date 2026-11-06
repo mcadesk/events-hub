@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
-import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=31';
+import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=32';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -470,8 +470,7 @@ async function editor(u, id, asAgent) {
     for (const f of files) {
       out.innerHTML = `<div class="notice">Uploading ${done + 1} of ${files.length}…</div>`;
       try {
-        const path = `${u.id}/${l.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-        await uploadWithThumb(path, f, 1080, 420);
+        const path = await uploadWithThumb(`${u.id}/${l.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`, f, 1080, 420);
         const { error } = await db.from('listing_photos').insert({ listing_id: l.id, path, sort: photos.length + done });
         if (error) throw error;
         done++;
@@ -481,7 +480,7 @@ async function editor(u, id, asAgent) {
     editor(u, l.id, asAgent);
   });
   document.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
-    await db.storage.from('listing-photos').remove([b.dataset.path, thumbPath(b.dataset.path)]);
+    await removePhoto(b.dataset.path);
     const { error } = await db.from('listing_photos').delete().eq('id', b.dataset.del);
     if (error) return fail(error, 'Removing the photo');
     b.parentElement.remove(); photos = photos.filter((p) => p.id !== b.dataset.del);
@@ -498,13 +497,27 @@ function collectExtra() {
   return o;
 }
 // Resize to max 1280px and compress to JPEG (keeps uploads around 150–300 KB)
-// Saves the photo (max px on the long side) plus a small copy for lists. Photos never change once saved, so phones may keep them for a year.
-async function uploadWithThumb(path, file, max, thumbMax) {
+// Saves the photo (max px on the long side) plus a small copy for lists, in Cloudflare R2 through the
+// NHYIAMU upload service. Returns the path to store ("r2/<user id>/..."). Photos never change once saved.
+async function uploadWithThumb(key, file, max, thumbMax) {
   const [big, small] = await Promise.all([shrink(file, max, 0.72), shrink(file, thumbMax, 0.68)]);
-  const opts = { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false };
-  const up = await db.storage.from('listing-photos').upload(path, big, opts);
-  if (up.error) throw up.error;
-  await db.storage.from('listing-photos').upload(thumbPath(path), small, opts);
+  const { data: { session: s } } = await db.auth.getSession();
+  if (!s) throw new Error('Please sign in again');
+  const send = async (k, blob) => {
+    const r = await fetch(`${CFG.uploadApi}/upload?key=${encodeURIComponent(k)}`, { method: 'POST', headers: { Authorization: `Bearer ${s.access_token}`, 'Content-Type': 'image/jpeg' }, body: blob });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Upload failed');
+    return j.path;
+  };
+  const path = await send(key, big);
+  await send(thumbPath(key), small);
+  return path;
+}
+async function removePhoto(path) {
+  if (!path) return;
+  if (!path.startsWith('r2/')) return db.storage.from('listing-photos').remove([path, thumbPath(path)]);
+  const { data: { session: s } } = await db.auth.getSession();
+  await Promise.all([path, thumbPath(path)].map((p) => fetch(`${CFG.uploadApi}/upload?key=${encodeURIComponent(p.slice(3))}`, { method: 'DELETE', headers: { Authorization: `Bearer ${s?.access_token}` } }).catch(() => {})));
 }
 
 async function shrink(file, max = 1280, quality = 0.75) {
@@ -584,8 +597,7 @@ async function flyerForm(u, id) {
       const file = document.getElementById('fl-img').files[0];
       if (file) {
         msg.innerHTML = '<div class="notice">Uploading the flyer…</div>';
-        image_path = `${u.id}/flyers/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-        await uploadWithThumb(image_path, file, 1400, 520);
+        image_path = await uploadWithThumb(`${u.id}/flyers/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`, file, 1400, 520);
       }
       const row = {
         town_id: Number(document.getElementById('fl-town').value), title: document.getElementById('fl-title').value.trim(),

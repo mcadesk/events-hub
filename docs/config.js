@@ -3,5 +3,7 @@
 window.EVENTS_HUB = {
   supabaseUrl: 'https://amhnlvjbyqbammedtfvg.supabase.co',
   supabaseKey: 'sb_publishable_I5ItyZLOxGADetUjVk8Omw_klXzRY3k',
+  photoHost: 'https://nhyiamu-img.mcadesk.org',
+  uploadApi: 'https://nhyiamu-api.mcadesk.org',
   defaultTown: 'ejisu-besease'
 };

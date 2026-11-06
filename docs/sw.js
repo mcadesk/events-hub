@@ -1,8 +1,8 @@
 // Keeps the app shell available offline; data always comes fresh from the network.
-const CACHE = 'eventshub-v32';
+const CACHE = 'eventshub-v33';
 const PHOTOS = 'nhyiamu-photos';
 async function trimPhotos(c) { const keys = await c.keys(); for (const k of keys.slice(0, Math.max(0, keys.length - 400))) await c.delete(k); }
-const SHELL = ['./', 'index.html', 'config.js?v=31', 'assets/app.css?v=31', 'assets/app.js?v=31', 'assets/sample.js?v=31', 'assets/core.js?v=31', 'assets/dash.js?v=31', 'icons/logo-mark.png', 'manifest.webmanifest'];
+const SHELL = ['./', 'index.html', 'config.js?v=32', 'assets/app.css?v=32', 'assets/app.js?v=32', 'assets/sample.js?v=32', 'assets/core.js?v=32', 'assets/dash.js?v=32', 'icons/logo-mark.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -13,7 +13,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   // Supplier photos never change once uploaded: serve from the phone when we have them (saves data and bandwidth)
-  if (e.request.method === 'GET' && url.pathname.includes('/storage/v1/object/public/listing-photos/')) {
+  if (e.request.method === 'GET' && (url.hostname === 'nhyiamu-img.mcadesk.org' || url.pathname.includes('/storage/v1/object/public/listing-photos/'))) {
     e.respondWith(caches.open(PHOTOS).then(async (c) => {
       const hit = await c.match(e.request);
       if (hit) return hit;
