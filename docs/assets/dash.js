@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=22';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=23';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -44,6 +44,7 @@ function need(u, roles) {
 
 /* ---------- layout ---------- */
 function shell(u, active, title, body) {
+  const prevScroll = document.querySelector('.tabs')?.scrollLeft || 0;
   const t = (id, label, roles) => (!roles || roles.includes(u.role)) ? `<a href="#/me/${id}" class="${active === id ? 'on' : ''}">${label}</a>` : '';
   app.innerHTML = `<div class="wrap">
     <div class="dash-head">
@@ -69,6 +70,15 @@ function shell(u, active, title, body) {
     </nav>
     <div id="dash">${body}</div>
   </div>`;
+  // Keep the tab bar where it was, and make sure the selected tab is visible
+  const bar = document.querySelector('.tabs');
+  if (bar) {
+    bar.scrollLeft = prevScroll;
+    const on = bar.querySelector('a.on');
+    if (on && (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth)) {
+      bar.scrollLeft = on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2;
+    }
+  }
   document.getElementById('signout').addEventListener('click', async () => {
     await db.auth.signOut(); clearMe(); toast('Signed out.'); go('/');
   });

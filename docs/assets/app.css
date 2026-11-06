@@ -179,7 +179,8 @@ body.has-cta { padding-bottom: 70px; }
 
 /* Account pages */
 .dash-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 10px; }
-.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; position: relative; scroll-behavior: auto; }
+@media (min-width: 760px) { .tabs { flex-wrap: wrap; overflow-x: visible; } }
 .tabs a { white-space: nowrap; text-decoration: none; padding: 8px 14px; border-radius: 999px; background: #e7ebf5; color: var(--ink); font-weight: 600; font-size: .9rem; }
 .tabs a.on { background: var(--green); color: #fff; }
 .row-list { display: grid; gap: 10px; }
