@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=32';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=33';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -638,7 +638,7 @@ async function flyerQueue(container, u) {
   container.querySelectorAll('[data-fapprove]').forEach((fm) => fm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const [amt, ref] = fm.querySelectorAll('input');
-    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: Number(amt.value), p_ref: ref.value.trim() || (Number(amt.value) === 0 ? 'FREE (plan or Founding place)' : '') });
+    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: Number(amt.value), p_ref: ref.value.trim() || (Number(amt.value) === 0 ? 'FREE (paid place, Founding place or GH₵ 100+ donor)' : '') });
     if (error) return fail(error, 'Approving the flyer');
     toast('Flyer is live for 7 days.'); container.querySelector(`[data-frow="${fm.dataset.fapprove}"]`)?.remove();
   }));

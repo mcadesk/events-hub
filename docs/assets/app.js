@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=32';
-import { SAMPLE_LISTINGS } from './sample.js?v=32';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=33';
+import { SAMPLE_LISTINGS } from './sample.js?v=33';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=32');
+      const dash = await import('./dash.js?v=33');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -62,7 +62,8 @@ document.getElementById('demo-off').addEventListener('click', () => { setDemo(fa
 
 /* ---------- pages ---------- */
 function home() {
-  const town = store.get('eh-town', CFG.defaultTown);
+  const saved = store.get('eh-town', CFG.defaultTown);
+  const town = REF.townBySlug[saved] ? saved : (REF.townBySlug[CFG.defaultTown] ? CFG.defaultTown : REF.towns[0]?.slug);
   document.title = 'NHYIAMU — find everything for your event';
   app.innerHTML = `
   <section class="hero" style="--hero-img:url('${catPhoto('hero', 1400, 800)}')"><div class="wrap">
@@ -232,11 +233,11 @@ async function results(townSlug, catSlug, params) {
       rows = data;
       if (first && rows.length === 0) db.from('search_misses').insert({ town_id: town.id, category_id: filterCat?.id ?? null, term: q || null }).then(() => {});
       more.innerHTML = rows.length === PAGE ? '<button class="btn btn-ghost" id="r-load">Show more</button>' : '';
-      document.getElementById('r-load')?.addEventListener('click', () => { offset += PAGE; load(false); });
+      document.getElementById('r-load')?.addEventListener('click', () => { offset += PAGE; load(false).catch(() => toast('Could not load more. Check your connection.', true)); });
     }
     if (first) list.innerHTML = '';
     if (first && rows.length === 0) {
-      list.outerHTML = `<div class="empty" id="r-list"><h3>No ${esc(title.toLowerCase())} listed here yet</h3>
+      list.outerHTML = `<div class="empty" id="r-list"><h3>${cat ? `No ${esc(title.toLowerCase())} listed here yet` : (q || verified ? 'No suppliers match your search' : 'No suppliers listed here yet')}</h3>
         <p class="muted">${scope === 'area' ? `Try <b>${esc(regionOf(town))}</b> or <b>All suppliers</b> above to see suppliers further away.` : 'NHYIAMU is new — suppliers are being added every week.'}</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <a class="btn" href="#/list">Know a supplier? Tell them to list free</a>
@@ -449,9 +450,12 @@ async function financePage() {
     e.preventDefault();
     const msg = document.getElementById('loan-msg');
     const t = REF.townBySlug[document.getElementById('lt').value];
+    const raw = document.getElementById('lph').value.replace(/[^0-9]/g, '');
+    const phone = /^0[0-9]{9}$/.test(raw) ? '+233' + raw.slice(1) : /^233[0-9]{9}$/.test(raw) ? '+' + raw : null;
+    if (!phone) { msg.innerHTML = '<div class="notice error">Please enter a valid Ghana phone number, e.g. 024 123 4567.</div>'; return; }
     const { error } = await db.from('loan_enquiries').insert({
       partner_id: document.getElementById('lp').value, name: document.getElementById('ln').value.trim(),
-      phone: document.getElementById('lph').value.trim(), town_id: t?.id ?? null,
+      phone, town_id: t?.id ?? null,
       event_type: document.getElementById('le').value.trim() || null, event_date: document.getElementById('ld').value || null,
       amount: document.getElementById('la').value || null, consent: document.getElementById('lc').checked
     });
@@ -552,6 +556,7 @@ function listPage() {
 }
 
 function notFound(msg = 'This page could not be found.') {
+  document.title = 'Not found — NHYIAMU';
   app.innerHTML = `<div class="wrap section"><div class="empty"><h3>Not found</h3><p class="muted">${esc(msg)}</p><a class="btn" href="#/">Go to home page</a></div></div>`;
 }
 
