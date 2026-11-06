@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=16';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=17';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -326,7 +326,7 @@ async function editor(u, id, asAgent) {
       <div class="form-grid two">
         <div class="field"><label for="e-town">Town you are based in</label><select id="e-town" required>${townOptions(l?.base_town_id ?? REF.townBySlug['ejisu-besease']?.id, 'id')}</select><span class="hint">Your town isn't listed? Choose the nearest and tell your agent or moderator.</span></div>
         <div class="field"><label for="e-cov">Where you serve</label><select id="e-cov">
-          ${[['town', 'My town only'], ['district', 'My whole municipality'], ['region', 'Anywhere in Ashanti'], ['nationwide', 'Anywhere in Ghana']].map(([k, t]) => `<option value="${k}" ${l?.coverage === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+          ${[['town', 'My town only'], ['district', 'My whole municipality'], ['region', 'Anywhere in my region'], ['nationwide', 'Anywhere in Ghana']].map(([k, t]) => `<option value="${k}" ${l?.coverage === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label for="e-land">Landmark directions</label><input type="text" id="e-land" required maxlength="120" placeholder="e.g. Opposite the Methodist church" value="${v('landmark')}"></div>
     </fieldset>
@@ -789,7 +789,7 @@ async function partnersAdmin(u) {
     <form class="form panel" id="lp-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Add a loan partner</h3>
       <div class="form-grid two">
         <div class="field"><label>Institution name</label><input type="text" id="lp-n" required></div>
-        <div class="field"><label>Branch towns</label><input type="text" id="lp-t" placeholder="e.g. Ejisu, Juaben"></div>
+        <div class="field"><label>Branch towns</label><input type="text" id="lp-t" placeholder="e.g. Ejisu, Kumasi, Accra"></div>
         <div class="field"><label>Phone</label><input type="tel" id="lp-p"></div>
         <div class="field"><label>Email</label><input type="text" id="lp-e"></div>
         <div class="field"><label>Loan product name</label><input type="text" id="lp-pn" placeholder="Event loan"></div>

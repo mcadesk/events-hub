@@ -71,7 +71,7 @@ export let REF = null;
 export async function ref() {
   if (REF) return REF;
   const [towns, cats] = await Promise.all([
-    db.from('towns').select('id,name,slug,lat,lng,district_id,districts(id,name,slug)').eq('active', true).order('name'),
+    db.from('towns').select('id,name,slug,lat,lng,district_id,districts(id,name,slug,regions(name))').eq('active', true).order('name'),
     db.from('categories').select('id,parent_id,name,slug,tier,sort').eq('active', true).order('sort')
   ]);
   if (towns.error || cats.error) throw (towns.error || cats.error);
@@ -87,6 +87,7 @@ export async function ref() {
   };
   return REF;
 }
+export const regionOf = (t) => t?.districts?.regions?.name || 'my region';
 export function resetRef() { REF = null; }
 
 export function townOptions(selected, by = 'slug') {

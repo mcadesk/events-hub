@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast } from './core.js?v=16';
-import { SAMPLE_LISTINGS } from './sample.js?v=16';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=17';
+import { SAMPLE_LISTINGS } from './sample.js?v=17';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=16');
+      const dash = await import('./dash.js?v=17');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -168,7 +168,7 @@ async function results(townSlug, catSlug, params) {
     ${banner(cat ? cat.slug : 'hero', `${esc(title)} <span>in ${esc(town.name)}</span>`)}
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Which suppliers to show">
-        ${scopeBtn('area', 'This area')}${scopeBtn('region', 'Ashanti')}${scopeBtn('all', 'All suppliers')}
+        ${scopeBtn('area', 'This area')}${scopeBtn('region', esc(regionOf(town)))}${scopeBtn('all', 'All suppliers')}
       </div>
       <form class="filters" id="filters">
         <select id="r-town" aria-label="Town">${townOptions(town.slug)}</select>
@@ -192,7 +192,7 @@ async function results(townSlug, catSlug, params) {
 
   document.getElementById('r-note').textContent = {
     area: `Suppliers based in ${town.name}, plus those who travel here.`,
-    region: 'Suppliers across the Ashanti Region, nearest first.',
+    region: `Suppliers across the ${regionOf(town)} Region, nearest first.`,
     all: 'Every supplier on NHYIAMU, nearest first.'
   }[scope] || '';
 
@@ -220,7 +220,7 @@ async function results(townSlug, catSlug, params) {
     if (first) list.innerHTML = '';
     if (first && rows.length === 0) {
       list.outerHTML = `<div class="empty" id="r-list"><h3>No ${esc(title.toLowerCase())} listed here yet</h3>
-        <p class="muted">${scope === 'area' ? 'Try <b>Ashanti</b> or <b>All suppliers</b> above to see suppliers further away.' : 'NHYIAMU is new — suppliers are being added every week.'}</p>
+        <p class="muted">${scope === 'area' ? `Try <b>${esc(regionOf(town))}</b> or <b>All suppliers</b> above to see suppliers further away.` : 'NHYIAMU is new — suppliers are being added every week.'}</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <a class="btn" href="#/list">Know a supplier? Tell them to list free</a>
           ${isDemo() ? '' : '<button class="btn btn-ghost" id="demo-on">Preview with sample listings</button>'}
@@ -277,7 +277,7 @@ async function listingPage(slug) {
     if (l) l = { ...l, town: REF.townBySlug[l.town_slug], categories: l.cats.map((s) => REF.catBySlug[s]).filter(Boolean), photos: [], reviews: l.reviews || [] };
   } else {
     const { data, error } = await db.from('listings')
-      .select('*, towns(name,slug,districts(name)), listing_categories(categories(name,slug,parent_id)), listing_photos(path,sort), reviews(id,author_id,rating,comment,event_type,event_month,reply,created_at)')
+      .select('*, towns(name,slug,districts(name,regions(name))), listing_categories(categories(name,slug,parent_id)), listing_photos(path,sort), reviews(id,author_id,rating,comment,event_type,event_month,reply,created_at)')
       .eq('slug', slug).maybeSingle();
     if (error) throw error;
     if (data) l = { ...data, town: data.towns, categories: data.listing_categories.map((x) => x.categories), photos: data.listing_photos.sort((a, b) => a.sort - b.sort), reviews: data.reviews };
@@ -293,7 +293,7 @@ async function listingPage(slug) {
     .map(([k, v]) => `<dt>${esc(k.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()))}</dt><dd>${esc(typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v)}</dd>`).join('');
   const photos = l.photos.length ? l.photos.map((p) => `<div><img src="${esc(photoUrl(p.path))}" alt="${esc(l.business_name)} photo" loading="lazy"></div>`).join('')
     : `<div>${placeholder(l.business_name, hash(l.slug))}</div>`;
-  const coverage = { town: `${l.town.name} only`, district: `All of ${l.town.districts.name}`, region: 'Anywhere in Ashanti', nationwide: 'Anywhere in Ghana' }[l.coverage];
+  const coverage = { town: `${l.town.name} only`, district: `All of ${l.town.districts.name}`, region: `Anywhere in the ${regionOf(l.town)} Region`, nationwide: 'Anywhere in Ghana' }[l.coverage];
   const user = slug.startsWith('sample-') ? null : await me();
   const isOwner = user && user.id === l.owner_id;
   const myReview = user ? l.reviews.find((r) => r.author_id === user.id) : null;
@@ -422,7 +422,7 @@ async function financePage() {
         <button class="btn" type="submit">Send enquiry</button>
         <div id="loan-msg"></div>
       </form>`
-    : `<div class="empty"><h3>Loan partners are joining soon</h3><p class="muted">We are speaking with credit unions, banks and savings &amp; loans in Ejisu and Juaben.</p>
+    : `<div class="empty"><h3>Loan partners are joining soon</h3><p class="muted">We are speaking with credit unions, banks and savings &amp; loans, starting in Ejisu and Juaben.</p>
         <p class="muted">Are you a financial institution? We'd love to list your event loan products.</p></div>`}
   </div>`;
   document.getElementById('loan-form')?.addEventListener('submit', async (e) => {
@@ -446,10 +446,10 @@ function permitsPage() {
   document.title = 'Event permits guide — NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
     ${banner('permits', 'Event permits guide')}
-    <p class="muted">For public events in Ejisu and Juaben Municipalities. Small private events at home or in a hall usually need fewer of these — ask the venue.</p>
+    <p class="muted">For public events anywhere in Ghana. Small private events at home or in a hall usually need fewer of these — ask the venue.</p>
     <ol class="steps">
       <li><b>Notify the Ghana Police Service</b><br>Public events must be notified to the police under the Public Order Act, 1994 (Act 491). Visit the police station nearest your venue well before the event. They can also arrange security and traffic control.</li>
-      <li><b>Get a permit from the Municipal Assembly</b><br>Ejisu Municipal Assembly or Juaben Municipal Assembly — for use of public space, road closures, banners and signage.</li>
+      <li><b>Get a permit from your Metropolitan, Municipal or District Assembly</b><br>The assembly for the area of your venue — for use of public space, road closures, banners and signage.</li>
       <li><b>Check fire safety with the Ghana National Fire Service</b><br>Large gatherings and venues may need a fire safety inspection or a standby crew.</li>
       <li><b>Inform the traditional authority</b><br>For funerals, festivals and community events, inform the chief and elders and observe any customary rites.</li>
       <li><b>Music licensing</b><br>Playing recorded music in public may need a licence from GHAMRO (Ghana Music Rights Organisation).</li>
@@ -462,7 +462,7 @@ function aboutPage() {
   document.title = 'About NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
     ${banner('about', 'About NHYIAMU')}
-    <p>NHYIAMU is a free directory that helps families, churches, schools and businesses in Ejisu and Juaben find everything they need for an event — and helps local suppliers get found.</p>
+    <p>NHYIAMU is a free directory that helps families, churches, schools and businesses across Ghana find everything they need for an event — and helps local suppliers get found.</p>
     <p>NHYIAMU is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers.</p>
     <h2>Where the money goes</h2>
     <p>Money left after running NHYIAMU supports the projects and foundation programmes of MEYE CATHOLIC ASOREBA.</p>
@@ -482,7 +482,7 @@ function listPage() {
       <li><b>Get verified:</b> an NHYIAMU field agent visits you and adds the Verified badge.</li>
     </ul>
     <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and a moderator will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
-    <p class="muted">Prefer help? Our field agents are visiting suppliers in Ejisu and Juaben to register them in person.</p>
+    <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Featured listing prices</h2>
     <p class="muted">Optional. Featured suppliers appear at the top of their town and category (3 spots, shared in rotation).</p>
     <div id="prices" class="panel">Loading…</div>
