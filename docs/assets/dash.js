@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=25';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=26';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -746,8 +746,20 @@ async function tally(u, params) {
     <div class="field" style="max-width:220px;margin-bottom:12px"><label for="t-m">Month</label><input type="month" id="t-m" value="${ym}" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px;min-height:44px"></div>
     <div style="overflow-x:auto"><table class="table"><thead><tr><th>Agent</th><th>Registered this month</th><th>Verified this month</th><th>Live listings (all time)</th></tr></thead>
     <tbody>${(data || []).map((r) => `<tr><td><b>${esc(r.agent_name || '—')}</b><br><span class="muted">${esc(r.agent_email || '')}</span></td><td>${r.registered}</td><td>${r.verified}</td><td>${r.live}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No agents yet.</td></tr>'}</tbody></table></div>
-    <p class="hint">Commission is paid on featured fees from suppliers an agent registered: 50% of the first month's value, then 20% of later payments.</p>`;
+    <p class="hint">Commission is paid on featured fees from suppliers an agent registered: 50% of the first month's value, then 20% of later payments.</p>
+    <div id="coord-earn"></div>`;
   document.getElementById('t-m').addEventListener('change', (e) => go(`/me/tally?m=${e.target.value}`));
+  if (['admin', 'coordinator'].includes(u.role)) {
+    const { data: ce } = await db.rpc('coordinator_earnings', { p_from: from, p_to: to });
+    const rows = ce || [];
+    const total = rows.reduce((s, r) => s + Number(r.earnings), 0);
+    document.getElementById('coord-earn').innerHTML = `<h2 style="margin-top:26px">${u.role === 'admin' ? 'Regional coordinator pay' : 'My pay as coordinator'}</h2>
+      <p class="muted" style="margin-top:-4px">10% of the region's income this month: Top spot and Featured payments recorded for its towns, and flyer fees for events held there. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Region</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Region income</th><th>Pay (10%)</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td>${esc(r.region_name)}</td><td>${r.coordinator_id ? `<b>${esc(r.coordinator_name || '—')}</b><br><span class="muted">${esc(r.coordinator_email || '')}</span>` : '<span class="muted">No coordinator</span>'}</td>
+        <td>${cedi(r.place_income)}</td><td>${cedi(r.flyer_income)}</td><td>${cedi(r.total_income)}</td><td><b>${r.coordinator_id ? cedi(r.earnings) : '—'}</b></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No regional income or coordinators this month.</td></tr>'}
+      </tbody>${rows.length && u.role === 'admin' ? `<tfoot><tr><td colspan="5"><b>Total to pay coordinators</b></td><td><b>${cedi(total)}</b></td></tr></tfoot>` : ''}</table></div>`;
+  }
 }
 
 /* ---------- moderator ---------- */
