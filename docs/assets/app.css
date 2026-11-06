@@ -116,6 +116,10 @@ select:focus, input:focus, textarea:focus { outline: none; border-color: var(--g
 .badge-verified { background: var(--green-soft); color: var(--green); }
 .badge-featured { background: var(--gold-soft); color: #7a5000; }
 .badge-founding { background: #f6e4e2; color: var(--red); }
+.badge-supporter { background: #fde8ef; color: #a1194a; }
+.flyer .badge-supporter { align-self: flex-start; margin-top: 4px; }
+.flyer-img.sup-img { aspect-ratio: 4 / 3; }
+.donor-panel { border-left: 4px solid #d63c74; }
 .badge-travel { background: #e7eefb; color: #1e4fa3; }
 .card-actions { display: flex; gap: 8px; margin-top: 4px; }
 .card-actions .btn { padding: 8px 12px; min-height: 38px; font-size: .88rem; flex: 1; }

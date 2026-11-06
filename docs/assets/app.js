@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=24';
-import { SAMPLE_LISTINGS } from './sample.js?v=24';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=25';
+import { SAMPLE_LISTINGS } from './sample.js?v=25';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=24');
+      const dash = await import('./dash.js?v=25');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -76,7 +76,7 @@ function home() {
     </form>
   </div></section>
 
-  <section class="section" style="padding-bottom:0"><div class="wrap" id="flyer-sec"></div></section>
+  <section class="section" style="padding-bottom:0"><div class="wrap" id="flyer-sec"></div><div class="wrap" id="sup-sec"></div></section>
 
   <section class="section"><div class="wrap">
     <div class="section-head"><h2>Browse by category</h2><a href="#/t/${esc(town)}" id="town-link">See all in your town</a></div>
@@ -108,7 +108,7 @@ function home() {
   </div></section>`;
 
   const townSel = document.getElementById('f-town');
-  const loadFlyers = () => { const t = REF.townBySlug[townSel.value]; if (t) flyerSection(t, document.getElementById('flyer-sec')).catch(() => {}); };
+  const loadFlyers = () => { const t = REF.townBySlug[townSel.value]; if (t) { flyerSection(t, document.getElementById('flyer-sec')).catch(() => {}); supportersSection(t, document.getElementById('sup-sec')).catch(() => {}); } };
   loadFlyers();
   townSel.addEventListener('change', () => {
     loadFlyers();
@@ -134,12 +134,14 @@ async function townPage(townSlug) {
     <p class="muted">${esc(town.districts.name)} · Suppliers based here and those who travel to ${esc(town.name)}.</p>
     <div class="field" style="max-width:320px;margin:12px 0 18px"><label class="muted" for="t-town">Change town</label><select id="t-town">${townOptions(town.slug)}</select></div>
     <div id="flyer-sec" style="margin-bottom:22px"></div>
+    <div id="sup-sec"></div>
     <h2>Suppliers by category</h2>
     <div class="cat-grid" id="t-cats">${REF.top.map(() => '<div class="skeleton"></div>').join('')}</div>
     <div class="section"><div class="cta-band"><div><h3>Planning an event here?</h3><span class="muted">Check which permits you need from the police, assembly and fire service.</span></div><a class="btn btn-ghost" href="#/permits">Permits guide</a></div></div>
   </div>`;
   document.getElementById('t-town').addEventListener('change', (e) => go(`/t/${e.target.value}`));
   flyerSection(town, document.getElementById('flyer-sec')).catch(() => {});
+  supportersSection(town, document.getElementById('sup-sec')).catch(() => {});
 
   let counts = {};
   if (isDemo()) {
@@ -259,6 +261,7 @@ function card(l) {
       <div class="badges">
         ${l.featured_level === 2 ? '<span class="badge badge-top">★ Top spot</span>' : l.featured ? '<span class="badge badge-featured">Featured</span>' : ''}
         ${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}
+        ${l.supporter ? '<span class="badge badge-supporter">♥ Supporter</span>' : ''}
         ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
         ${l.travels ? '<span class="badge badge-travel">Travels to your area</span>' : ''}
         ${l.negotiable ? '<span class="badge">Open to discussion</span>' : ''}
@@ -297,6 +300,7 @@ async function listingPage(slug) {
     if (data) l = { ...data, town: data.towns, categories: data.listing_categories.map((x) => x.categories), photos: data.listing_photos.sort((a, b) => a.sort - b.sort), reviews: data.reviews };
   }
   if (!l) return notFound('This listing could not be found. It may have been removed.');
+  if (l.owner_id && !isDemo()) { try { const { data: sup } = await db.rpc('is_supporter', { p_user: l.owner_id }); l.supporter = !!sup; } catch {} }
   document.title = `${l.business_name} — NHYIAMU`;
   logTap(l.id, 'view');
 
@@ -325,6 +329,7 @@ async function listingPage(slug) {
         <h1 style="margin-top:6px">${esc(l.business_name)}</h1>
         <div class="badges" style="margin-bottom:10px">
           ${l.verified ? '<span class="badge badge-verified">✓ Verified by NHYIAMU</span>' : ''}
+          ${l.supporter ? '<span class="badge badge-supporter" title="Has donated to the projects of MEYE CATHOLIC ASOREBA">♥ NHYIAMU Supporter</span>' : ''}
           ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
           ${l.categories.map((c) => `<span class="badge">${esc(c.name)}</span>`).join('')}
         </div>
@@ -533,7 +538,20 @@ async function flyerSection(town, el) {
         <div class="flyer-img">${f.image_path ? `<img src="${esc(photoUrl(f.image_path))}" alt="" loading="lazy">` : placeholder(f.title, hash(f.id))}</div>
         <div class="flyer-body"><b>${esc(f.title)}</b><span class="muted">${niceDate(f.event_date)}${f.event_time ? ' · ' + esc(f.event_time) : ''}</span><span class="muted">${esc(f.venue_name)}, ${esc(f.town_name)}</span></div>
       </a>`).join('')}</div>`
-    : `<div class="cta-band"><div><b>Hosting a programme?</b><br><span class="muted">Post your flyer with directions for one week, seen by people in ${esc(town.name)} and nearby towns${st.flyer_price ? ` — GH₵ ${esc(st.flyer_price)} a week, free with a Top spot, Featured or Founding supplier place` : ''}.</span></div><a class="btn btn-gold" href="#/me/flyer">Post a flyer</a></div>`}`;
+    : `<div class="cta-band"><div><b>Hosting a programme?</b><br><span class="muted">Post your flyer with directions for one week, seen by people in ${esc(town.name)} and nearby towns${st.flyer_price ? ` — GH₵ ${esc(st.flyer_price)} a week, free with a Top spot, Featured or Founding supplier place, or for donors of GH₵ ${esc(st.donor_flyer_min || '100')} and above` : ''}.</span></div><a class="btn btn-gold" href="#/me/flyer">Post a flyer</a></div>`}`;
+}
+
+async function supportersSection(town, el) {
+  if (!el || isDemo()) return;
+  const { data } = await db.rpc('town_supporters', { p_town: town.id, p_limit: 8 });
+  const list = data || [];
+  if (!list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="section-head" style="margin-top:18px"><h2>Recommended near ${esc(town.name)}</h2><a href="#/donate">♥ Our supporters</a></div>
+    <p class="muted" style="margin:-6px 0 10px;font-size:.92rem">These businesses donate to the projects of MEYE CATHOLIC ASOREBA. Thank you!</p>
+    <div class="flyers">${list.map((s) => `<a class="flyer" href="#/l/${esc(s.slug)}">
+      <div class="flyer-img sup-img">${s.photo ? `<img src="${esc(photoUrl(s.photo))}" alt="" loading="lazy">` : placeholder(s.business_name, hash(s.slug))}</div>
+      <div class="flyer-body"><b>${esc(s.business_name)}</b><span class="muted">${esc(s.category || '')}</span><span class="muted">${esc(s.town_name)}</span><span class="badge badge-supporter">♥ Supporter</span></div>
+    </a>`).join('')}</div>`;
 }
 
 async function flyerPage(id) {
@@ -574,11 +592,18 @@ async function donatePage() {
     ${banner('about', 'Support our projects')}
     <p><b>NHYIAMU is free</b> for everyone looking for event suppliers, and basic listings are free for every supplier.</p>
     <p>If NHYIAMU has helped you, or you believe in what we do, you are warmly encouraged to donate towards the <b>projects of MEYE CATHOLIC ASOREBA</b>. Every cedi helps.</p>
+    <div class="panel"><h3 style="margin-top:0">A thank-you for businesses on NHYIAMU</h3>
+      <p style="margin:0 0 8px">If you have a listing on NHYIAMU and donate within a year:</p>
+      <ul style="margin:0">
+        <li><b>GH₵ ${esc(st.supporter_min || '50')} or more:</b> you join our <b>♥ Supporters</b> for 12 months. Your business gets a Supporter badge, shows just after the paid places in search results, and is recommended to visitors on the town pages.</li>
+        <li><b>GH₵ ${esc(st.donor_flyer_min || '100')} or more:</b> all of the above, and you post your <b>event flyers free</b> for 12 months.</li>
+      </ul>
+      <p class="muted" style="margin:8px 0 0;font-size:.9rem">Smaller gifts add up: everything you give in 12 months counts. Market women and small traders are very welcome.</p></div>
     ${st.donate_number ? `<div class="panel donate-box">
         <h3 style="margin:0">Donate by Mobile Money</h3>
         <p style="margin:6px 0 0;font-size:1.3rem"><b>${esc(st.donate_number)}</b></p>
         ${st.donate_name ? `<p class="muted" style="margin:2px 0 0">Name: ${esc(st.donate_name)}</p>` : ''}
-        <p class="muted" style="margin:8px 0 0;font-size:.9rem">Use "Donation" as the reference. Thank you!</p></div>`
+        <p class="muted" style="margin:8px 0 0;font-size:.9rem">Use <b>"Donation"</b> and the phone number on your NHYIAMU account as the reference, so we can add the Supporter badge to your business. Thank you!</p></div>`
       : `<div class="notice">Donation details will be shared here very soon.</div>`}
     <p class="muted">Full details of all MEYE CATHOLIC ASOREBA projects and programmes will be on its website, coming soon.</p>
   </div>`;

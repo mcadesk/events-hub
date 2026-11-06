@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=24';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=25';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -27,6 +27,7 @@ export async function route(parts, params) {
     people: () => need(u, ['admin']) && people(u, params),
     towns: () => need(u, ['admin', 'coordinator']) && townsAdmin(u),
     featured: () => need(u, ['admin']) && featuredAdmin(u),
+    donations: () => need(u, ['admin']) && donationsAdmin(u),
     tally: () => need(u, ['agent', 'admin', 'coordinator']) && tally(u, params),
     partners: () => need(u, ['admin']) && partnersAdmin(u),
     enquiries: () => need(u, ['partner', 'admin']) && enquiries(u),
@@ -63,6 +64,7 @@ function shell(u, active, title, body) {
       ${t('people', 'People', ['admin'])}
       ${t('towns', 'Towns', ['admin', 'coordinator'])}
       ${t('featured', 'Featured', ['admin'])}
+      ${t('donations', 'Donations', ['admin'])}
       ${t('tally', u.role === 'agent' ? 'My tally' : 'Agent tally', ['agent', 'admin', 'coordinator'])}
       ${t('partners', 'Loan partners', ['admin'])}
       ${t('enquiries', 'Loan enquiries', ['partner', 'admin'])}
@@ -212,7 +214,15 @@ async function home(u) {
   const stale = (l) => (Date.now() - new Date(l.last_confirmed_at)) > 180 * 864e5;
   const intro = u.role === 'host' && !listings.length
     ? `<div class="cta-band"><div><h3>List your business free</h3><span class="muted">Add your photos, prices and WhatsApp number. A moderator checks it, then people near you can find you.</span></div><a class="btn" href="#/me/new">Create my listing</a></div>` : '';
-  document.getElementById('dash').innerHTML = `${intro}
+  let donor = null;
+  try { const { data: ds } = await db.rpc('my_donor_status'); donor = ds?.[0] || null; } catch {}
+  const fmt = (x) => new Date(x + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const donorPanel = !donor ? '' : donor.supporter_until
+    ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Thank you — you are a NHYIAMU Supporter</b> until ${fmt(donor.supporter_until)}.
+        <span class="muted">Your business shows with a Supporter badge, just after the paid places, and is recommended on town pages.</span>
+        ${donor.free_flyers_until ? `<br><b>Free event flyers</b> until ${fmt(donor.free_flyers_until)}.` : `<br><span class="muted">Give GH₵ ${Math.max(0, Number(donor.flyer_min) - Number(donor.total_12m))} more within the year to also post event flyers free.</span>`}</div>`
+    : listings.length ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Become a NHYIAMU Supporter</b><br><span class="muted">Donate GH₵ ${Number(donor.supporter_min)} or more to the projects of MEYE CATHOLIC ASOREBA and your business is recommended to visitors for a year. GH₵ ${Number(donor.flyer_min)} or more also gives you free event flyers.${Number(donor.total_12m) > 0 ? ` You have given GH₵ ${Number(donor.total_12m)} this year — thank you!` : ''}</span> <a href="#/donate">How to donate</a></div>` : '';
+  document.getElementById('dash').innerHTML = `${intro}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
     <div class="row-list">${listings.map((l) => {
       const ph = (l.listing_photos || []).sort((a, b) => a.sort - b.sort)[0];
@@ -516,7 +526,7 @@ async function flyerForm(u, id) {
   const today = new Date().toISOString().slice(0, 10);
   const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
   shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
-    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place. A moderator just checks the flyer, then it goes live for 7 days.' : payNote(st)}</div>
+    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place, or you are a donor of GH₵ ' + esc(st.donor_flyer_min || '100') + '+ this year. Thank you! A moderator just checks the flyer, then it goes live for 7 days.' : payNote(st) + ` <a href="#/donate">Donors of GH₵ ${esc(st.donor_flyer_min || '100')} or more</a> post flyers free for a year.`}</div>
     ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
     <form class="form" id="fl" style="max-width:760px">
       <fieldset><legend>The programme</legend>
@@ -1041,6 +1051,74 @@ async function featuredAdmin(u) {
     const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     const { error } = await db.from('featured_slots').update({ ends_on: y }).eq('id', b.dataset.end);
     if (error) return fail(error, 'Ending'); featuredAdmin(u);
+  }));
+}
+
+async function donationsAdmin(u) {
+  shell(u, 'donations', 'Donations', '<div class="skeleton"></div>');
+  const since = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const [st, { data: rows, error }] = await Promise.all([getSettings(),
+    db.from('donations').select('id,user_id,amount,donated_on,payment_ref,note,profiles!donations_user_id_fkey(full_name,email,phone)').gte('donated_on', since).order('donated_on', { ascending: false })]);
+  if (error) return fail(error, 'Loading donations');
+  const sMin = Number(st.supporter_min || 50), fMin = Number(st.donor_flyer_min || 100);
+  const people = {};
+  (rows || []).forEach((r) => { (people[r.user_id] ||= { p: r.profiles, total: 0 }).total += Number(r.amount); });
+  const ids = Object.keys(people);
+  await Promise.all(ids.map(async (id) => { const { data } = await db.rpc('my_donor_status', { p_user: id }); people[id].s = data?.[0] || {}; }));
+  const fmt = (x) => x ? new Date(x + 'T12:00:00').toLocaleDateString('en-GB') : '';
+  document.getElementById('dash').innerHTML = `
+    <form class="form panel" id="dn-st" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Donor rewards</h3>
+      <div class="form-grid two">
+        <div class="field"><label for="dn-smin">Supporter from (GH₵ in 12 months)</label><input type="number" id="dn-smin" min="1" value="${sMin}"></div>
+        <div class="field"><label for="dn-fmin">Free flyers from (GH₵ in 12 months)</label><input type="number" id="dn-fmin" min="1" value="${fMin}"></div>
+      </div><button class="btn btn-small" type="submit">Save</button></form>
+    <form class="form panel" id="dn-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Record a donation</h3>
+      <span class="hint">Record it once the MoMo payment has arrived. Only the Supporter badge is public — amounts stay private.</span>
+      <div class="field"><label for="dn-q">Donor's account</label><input type="search" id="dn-q" placeholder="Business name, email, phone or name"><select id="dn-u" required><option value="">Search above…</option></select></div>
+      <div class="form-grid two">
+        <div class="field"><label for="dn-a">Amount (GH₵)</label><input type="number" id="dn-a" min="1" step="0.01" required></div>
+        <div class="field"><label for="dn-d">Date received</label><input type="date" id="dn-d" max="${today}" value="${today}" required></div>
+      </div>
+      <div class="field"><label for="dn-r">MoMo reference</label><input type="text" id="dn-r" required></div>
+      <button class="btn" type="submit">Record donation</button></form>
+    <h2>Donors in the last 12 months</h2>
+    <table class="table"><thead><tr><th>Donor</th><th>Total</th><th>Status</th></tr></thead><tbody>
+      ${ids.sort((a, b) => people[b].total - people[a].total).map((id) => { const x = people[id]; return `<tr><td>${esc(x.p?.full_name || x.p?.email || '')}<br><span class="muted">${esc(x.p?.email || '')} ${esc(x.p?.phone || '')}</span></td><td>${cedi(x.total)}</td>
+        <td>${x.s.free_flyers_until ? `<span class="badge badge-supporter">♥ Supporter + free flyers</span><br><span class="muted">until ${fmt(x.s.supporter_until)} / flyers ${fmt(x.s.free_flyers_until)}</span>` : x.s.supporter_until ? `<span class="badge badge-supporter">♥ Supporter</span><br><span class="muted">until ${fmt(x.s.supporter_until)}</span>` : `<span class="muted">GH₵ ${sMin - x.total} more to be a Supporter</span>`}</td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">No donations recorded yet.</td></tr>'}</tbody></table>
+    ${(rows || []).length ? `<h2 style="margin-top:22px">All donations (12 months)</h2><table class="table"><thead><tr><th>Date</th><th>Donor</th><th>Amount</th><th>Reference</th><th></th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td>${fmt(r.donated_on)}</td><td>${esc(r.profiles?.full_name || r.profiles?.email || '')}</td><td>${cedi(r.amount)}</td><td>${esc(r.payment_ref || '')}</td><td><button class="linkish" data-del="${r.id}">Remove</button></td></tr>`).join('')}</tbody></table>` : ''}`;
+
+  document.getElementById('dn-st').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { error } = await db.from('app_settings').upsert([{ key: 'supporter_min', value: document.getElementById('dn-smin').value }, { key: 'donor_flyer_min', value: document.getElementById('dn-fmin').value }]);
+    if (error) return fail(error, 'Saving'); toast('Saved.'); donationsAdmin(u);
+  });
+  let timer;
+  document.getElementById('dn-q').addEventListener('input', (e) => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = e.target.value.trim().replace(/[%,()]/g, ''); if (q.length < 2) return;
+      const [{ data: ps }, { data: ls }] = await Promise.all([
+        db.from('profiles').select('id,full_name,email,phone').or(`email.ilike.%${q}%,full_name.ilike.%${q}%,phone.ilike.%${q}%`).limit(10),
+        db.from('listings').select('owner_id,business_name,profiles!listings_owner_id_fkey(full_name,email)').ilike('business_name', `%${q}%`).limit(10)]);
+      const opts = [...(ls || []).map((l) => [l.owner_id, `${l.business_name} — ${l.profiles?.full_name || l.profiles?.email || ''}`]),
+        ...(ps || []).map((p) => [p.id, `${p.full_name || ''} ${p.email ? '· ' + p.email : ''} ${p.phone ? '· ' + p.phone : ''}`])];
+      document.getElementById('dn-u').innerHTML = opts.length ? opts.map(([id, t]) => `<option value="${id}">${esc(t)}</option>`).join('') : '<option value="">No match</option>';
+    }, 300);
+  });
+  document.getElementById('dn-f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const user_id = document.getElementById('dn-u').value;
+    if (!user_id) return toast('Pick the donor first.', true);
+    const { error } = await db.from('donations').insert({ user_id, amount: Number(document.getElementById('dn-a').value), donated_on: document.getElementById('dn-d').value, payment_ref: document.getElementById('dn-r').value.trim(), recorded_by: u.id });
+    if (error) return fail(error, 'Recording the donation');
+    toast('Donation recorded. Thank you to them!'); donationsAdmin(u);
+  });
+  document.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Remove this donation record?')) return;
+    const { error } = await db.from('donations').delete().eq('id', b.dataset.del);
+    if (error) return fail(error, 'Removing'); donationsAdmin(u);
   }));
 }
 
