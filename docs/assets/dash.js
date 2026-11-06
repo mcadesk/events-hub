@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=27';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf } from './core.js?v=28';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -32,7 +32,9 @@ export async function route(parts, params) {
     partners: () => need(u, ['admin']) && partnersAdmin(u),
     enquiries: () => need(u, ['partner', 'admin']) && enquiries(u),
     profile: () => profile(u),
-    flyer: () => flyerForm(u, parts[2])
+    flyer: () => flyerForm(u, parts[2]),
+    join: () => joinForm(u),
+    apps: () => need(u, ['admin', 'coordinator']) && applications(u, params)
   };
   return (routes[sub] || routes.home)();
 }
@@ -62,6 +64,7 @@ function shell(u, active, title, body) {
       ${t('reports', 'Reports', [...STAFF, 'coordinator'])}
       ${t('all', 'All listings', STAFF)}
       ${t('people', 'People', ['admin'])}
+      ${t('apps', 'Applications', ['admin', 'coordinator'])}
       ${t('towns', 'Towns', ['admin', 'coordinator'])}
       ${t('featured', 'Featured', ['admin'])}
       ${t('donations', 'Donations', ['admin'])}
@@ -222,7 +225,10 @@ async function home(u) {
         <span class="muted">Your business shows with a Supporter badge, just after the paid places, and is recommended on town pages.</span>
         ${donor.free_flyers_until ? `<br><b>Free event flyers</b> until ${fmt(donor.free_flyers_until)}.` : `<br><span class="muted">Give GH₵ ${Math.max(0, Number(donor.flyer_min) - Number(donor.total_12m))} more within the year to also post event flyers free.</span>`}</div>`
     : listings.length ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Become a NHYIAMU Supporter</b><br><span class="muted">Donate GH₵ ${Number(donor.supporter_min)} or more to the projects of MEYE CATHOLIC ASOREBA and your business is recommended to visitors for a year. GH₵ ${Number(donor.flyer_min)} or more also gives you free event flyers.${Number(donor.total_12m) > 0 ? ` You have given GH₵ ${Number(donor.total_12m)} this year — thank you!` : ''}</span> <a href="#/donate">How to donate</a></div>` : '';
-  document.getElementById('dash').innerHTML = `${intro}${donorPanel}
+  const { data: myApp } = await db.from('team_applications').select('role_wanted,status').eq('user_id', u.id).maybeSingle();
+  const APP_MSG = { new: 'received. The regional coordinator will call you soon.', checking: 'being checked. The coordinator is speaking with your pastor or guarantor.', accepted: 'accepted. Welcome to the team!', declined: 'not successful this time. Thank you for applying.' };
+  const appPanel = myApp ? `<div class="panel" style="margin-bottom:16px"><b>Your application to join the team</b> (${esc(ROLE_WANT[myApp.role_wanted])}) has been ${APP_MSG[myApp.status]} ${['new', 'checking'].includes(myApp.status) ? '<a href="#/me/join">View or edit</a>' : ''}</div>` : '';
+  document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
     <div class="row-list">${listings.map((l) => {
       const ph = (l.listing_photos || []).sort((a, b) => a.sort - b.sort)[0];
@@ -1143,6 +1149,143 @@ async function donationsAdmin(u) {
     if (!confirm('Remove this donation record?')) return;
     const { error } = await db.from('donations').delete().eq('id', b.dataset.del);
     if (error) return fail(error, 'Removing'); donationsAdmin(u);
+  }));
+}
+
+const ROLE_WANT = { agent: 'Field agent', moderator: 'Moderator', coordinator: 'Regional coordinator' };
+const WORK = { unemployed: 'Unemployed', student: 'Student / just finished school', part_time: 'Part-time work', employed: 'Employed' };
+
+async function joinForm(u) {
+  const { data: a } = await db.from('team_applications').select('*').eq('user_id', u.id).maybeSingle();
+  const locked = a && ['accepted', 'declined'].includes(a.status);
+  const sel = (obj, v) => Object.entries(obj).map(([k, t]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  const et = a?.endorsement_type || 'pastor';
+  shell(u, 'join', 'Join the NHYIAMU team', `
+    ${a ? `<div class="notice" style="margin-bottom:14px;max-width:760px">Your application is <span class="status status-${esc(a.status)}">${esc(a.status)}</span>.${locked ? '' : ' You can still update it below.'}</div>` : `<p class="muted" style="max-width:760px">Read about the roles and pay on the <a href="#/join">Join our team</a> page first. We give priority to people who are unemployed.</p>`}
+    ${locked ? '' : `<form class="form" id="ja" style="max-width:760px">
+      <fieldset><legend>About you</legend>
+        <div class="form-grid two">
+          <div class="field"><label for="ja-name">Full name</label><input type="text" id="ja-name" required maxlength="80" value="${esc(a?.full_name || u.full_name || '')}"></div>
+          <div class="field"><label for="ja-phone">Phone (WhatsApp)</label><input type="tel" id="ja-phone" required placeholder="024 123 4567" value="${esc(localPhone(a?.phone || u.phone || ''))}"></div>
+          <div class="field"><label for="ja-town">Town where you live</label><select id="ja-town" required>${townOptions(a?.town_id ?? REF.townBySlug['ejisu-besease']?.id, 'id')}</select></div>
+          <div class="field"><label for="ja-role">Role you want</label><select id="ja-role">${sel(ROLE_WANT, a?.role_wanted || 'agent')}</select></div>
+          <div class="field"><label for="ja-work">Work right now</label><select id="ja-work">${sel(WORK, a?.work_status || 'unemployed')}</select></div>
+          <div class="field"><label for="ja-edu">Highest education</label><input type="text" id="ja-edu" maxlength="80" value="${esc(a?.education || '')}" placeholder="e.g. SHS, HND, degree"></div>
+          <div class="field"><label for="ja-lang">Languages you speak</label><input type="text" id="ja-lang" maxlength="80" value="${esc(a?.languages || '')}" placeholder="e.g. Twi, English"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="ja-phone-ok" ${a?.has_smartphone === false ? '' : 'checked'}> I have a smartphone with WhatsApp</label>
+        <div class="field"><label for="ja-why">Why do you want to join? (optional)</label><textarea id="ja-why" rows="3" maxlength="600">${esc(a?.motivation || '')}</textarea></div>
+      </fieldset>
+      <fieldset><legend>Who recommends you</legend>
+        <div class="field"><label for="ja-et">Choose one</label><select id="ja-et"><option value="pastor" ${et === 'pastor' ? 'selected' : ''}>My pastor recommends me</option><option value="guarantor" ${et === 'guarantor' ? 'selected' : ''}>My parent or guardian is my guarantor</option></select></div>
+        <div class="form-grid two">
+          <div class="field"><label for="ja-en" id="ja-en-l">Name</label><input type="text" id="ja-en" required maxlength="80" value="${esc(a?.endorser_name || '')}"></div>
+          <div class="field"><label for="ja-ep">Their phone</label><input type="tel" id="ja-ep" required placeholder="020 123 4567" value="${esc(localPhone(a?.endorser_phone || ''))}"></div>
+          <div class="field" data-for="pastor"><label for="ja-church">Church and town</label><input type="text" id="ja-church" maxlength="100" value="${esc(a?.endorser_church || '')}" placeholder="e.g. St. Peter's Catholic Church, Ejisu"></div>
+          <div class="field" data-for="guarantor"><label for="ja-rel">Relationship to you</label><select id="ja-rel">${sel({ mother: 'Mother', father: 'Father', guardian: 'Guardian' }, a?.endorser_relationship || 'mother')}</select></div>
+          <div class="field" data-for="guarantor"><label for="ja-etown">Where they live</label><input type="text" id="ja-etown" maxlength="80" value="${esc(a?.endorser_town || '')}"></div>
+          <div class="field" data-for="guarantor"><label for="ja-eocc">Their work</label><input type="text" id="ja-eocc" maxlength="80" value="${esc(a?.endorser_occupation || '')}"></div>
+        </div>
+        <div class="field"><label for="ja-letter" id="ja-letter-l">Photo of a letter from your pastor (optional)</label><input type="file" id="ja-letter" accept="image/*">${a?.letter_path ? '<span class="hint">A photo is already attached. Choose another to replace it.</span>' : ''}</div>
+        <span class="hint">The regional coordinator will call this person to confirm before you are accepted.</span>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="ja-adult" required ${a ? 'checked' : ''}> I am 18 years or older</label>
+      <label class="check"><input type="checkbox" id="ja-consent" required ${a ? 'checked' : ''}> I agree that NHYIAMU may call me and the person above about this application</label>
+      <button class="btn" type="submit">${a ? 'Update my application' : 'Send my application'}</button><div id="ja-msg"></div>
+    </form>`}`);
+  if (locked) return;
+  const etSel = document.getElementById('ja-et');
+  const sync = () => {
+    const v = etSel.value;
+    document.querySelectorAll('[data-for]').forEach((el) => { el.hidden = el.dataset.for !== v; });
+    document.getElementById('ja-en-l').textContent = v === 'pastor' ? "Pastor's name" : "Parent or guardian's name";
+    document.getElementById('ja-letter-l').textContent = v === 'pastor' ? 'Photo of a letter from your pastor (optional)' : 'Photo of a signed note from your guarantor (optional)';
+  };
+  etSel.addEventListener('change', sync); sync();
+  document.getElementById('ja').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('ja-msg'); const g = (id) => document.getElementById(id).value.trim();
+    const phone = toGhanaPhone(g('ja-phone')), ephone = toGhanaPhone(g('ja-ep'));
+    if (!phone || !ephone) return (msg.innerHTML = '<div class="notice error">Please enter valid Ghana phone numbers for you and the person who recommends you.</div>');
+    if (phone === ephone) return (msg.innerHTML = '<div class="notice error">The person who recommends you needs their own phone number.</div>');
+    const type = etSel.value;
+    if (type === 'pastor' && !g('ja-church')) return (msg.innerHTML = '<div class="notice error">Please enter your pastor\'s church and town.</div>');
+    const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
+    try {
+      let letter_path = a?.letter_path || null;
+      const file = document.getElementById('ja-letter').files[0];
+      if (file) {
+        msg.innerHTML = '<div class="notice">Uploading the photo…</div>';
+        const blob = await shrink(file, 1600, 0.78);
+        letter_path = `${u.id}/team/${Date.now()}.jpg`;
+        const up = await db.storage.from('listing-photos').upload(letter_path, blob, { contentType: 'image/jpeg' });
+        if (up.error) throw up.error;
+      }
+      const row = {
+        user_id: u.id, full_name: g('ja-name'), phone, town_id: Number(g('ja-town')), role_wanted: g('ja-role'), work_status: g('ja-work'),
+        education: g('ja-edu') || null, languages: g('ja-lang') || null, has_smartphone: document.getElementById('ja-phone-ok').checked,
+        motivation: g('ja-why') || null, endorsement_type: type, endorser_name: g('ja-en'), endorser_phone: ephone,
+        endorser_church: type === 'pastor' ? g('ja-church') : null,
+        endorser_relationship: type === 'guarantor' ? g('ja-rel') : null,
+        endorser_town: type === 'guarantor' ? (g('ja-etown') || null) : null,
+        endorser_occupation: type === 'guarantor' ? (g('ja-eocc') || null) : null,
+        letter_path, is_adult: document.getElementById('ja-adult').checked, consent: document.getElementById('ja-consent').checked
+      };
+      const { error } = a ? await db.from('team_applications').update(row).eq('id', a.id) : await db.from('team_applications').insert(row);
+      if (error) throw error;
+      toast(a ? 'Application updated.' : 'Application sent. The regional coordinator will call you.');
+      go('/me');
+    } catch (err) { btn.disabled = false; fail(err, 'Sending your application'); }
+  });
+}
+
+async function applications(u, params) {
+  const st = params.get('s') || 'open';
+  shell(u, 'apps', 'Team applications', '<div class="skeleton"></div>');
+  let q = db.from('team_applications').select('*').order('created_at');
+  q = st === 'open' ? q.in('status', ['new', 'checking']) : q.eq('status', st);
+  const { data, error } = await q;
+  if (error) return fail(error, 'Loading applications');
+  const wa = (p, text) => `https://wa.me/${String(p).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`;
+  const tabs = [['open', 'To check'], ['accepted', 'Accepted'], ['declined', 'Declined']];
+  document.getElementById('dash').innerHTML = `
+    <p class="muted" style="max-width:760px">${u.role === 'coordinator' ? 'Applicants from your region who want to be field agents or moderators.' : 'All applications. Coordinators handle field agents and moderators in their regions; applications to be a coordinator, and regions without a coordinator, are yours.'} Call the applicant, then their pastor or guarantor, before accepting.</p>
+    <div class="filters" style="margin-bottom:12px">${tabs.map(([k, t]) => `<a class="btn btn-small ${k === st ? '' : 'btn-ghost'}" href="#/me/apps?s=${k}">${t}</a>`).join('')}</div>
+    <div class="row-list">${(data || []).map((a) => {
+      const town = REF.townById[a.town_id];
+      return `<div class="row app-card">
+        <div class="row-top"><div><b>${esc(a.full_name)}</b> · ${esc(ROLE_WANT[a.role_wanted])}<br><span class="muted">${esc(town?.name || '')}${town ? ', ' + esc(regionOf(town)) : ''} · applied ${new Date(a.created_at).toLocaleDateString('en-GB')}</span></div><span class="status status-${esc(a.status)}">${esc(a.status)}</span></div>
+        <dl class="kv">
+          <dt>Work now</dt><dd>${esc(WORK[a.work_status])}${a.education ? ' · ' + esc(a.education) : ''}${a.languages ? ' · ' + esc(a.languages) : ''}${a.has_smartphone ? '' : ' · <b>no smartphone</b>'}</dd>
+          ${a.motivation ? `<dt>Why</dt><dd>${esc(a.motivation)}</dd>` : ''}
+          <dt>${a.endorsement_type === 'pastor' ? 'Pastor' : 'Guarantor'}</dt><dd><b>${esc(a.endorser_name)}</b>${a.endorsement_type === 'pastor' ? ` · ${esc(a.endorser_church || '')}` : ` · ${esc(a.endorser_relationship || '')}${a.endorser_town ? ', ' + esc(a.endorser_town) : ''}${a.endorser_occupation ? ', ' + esc(a.endorser_occupation) : ''}`}<br>${esc(localPhone(a.endorser_phone))}</dd>
+          ${a.letter_path ? `<dt>Letter</dt><dd><a href="${esc(photoUrl(a.letter_path))}" target="_blank" rel="noopener">View photo</a></dd>` : ''}
+          ${a.staff_note ? `<dt>Notes</dt><dd>${esc(a.staff_note)}</dd>` : ''}
+        </dl>
+        <div class="row-actions">
+          <a class="btn btn-wa" href="${wa(a.phone, `Hello ${a.full_name}, this is NHYIAMU about your application to join the team.`)}" target="_blank" rel="noopener">WhatsApp applicant</a>
+          <a class="btn btn-ghost" href="tel:${esc(a.phone)}">Call applicant</a>
+          <a class="btn btn-ghost" href="tel:${esc(a.endorser_phone)}">Call ${a.endorsement_type === 'pastor' ? 'pastor' : 'guarantor'}</a>
+        </div>
+        ${['new', 'checking'].includes(a.status) ? `<form class="filters" data-app="${a.id}">
+          <input type="text" maxlength="300" placeholder="Notes, e.g. spoke to pastor, good report" value="${esc(a.staff_note || '')}" style="flex:1;min-width:200px">
+          <button class="btn btn-small btn-ghost" type="submit" data-to="checking">Save as checking</button>
+          <button class="btn btn-small" type="submit" data-to="accept">Accept</button>
+          <button class="btn btn-small btn-ghost" type="submit" data-to="declined">Decline</button></form>` : ''}
+      </div>`; }).join('') || '<div class="empty"><p class="muted">No applications here.</p></div>'}</div>`;
+  document.querySelectorAll('[data-app]').forEach((f) => f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const to = e.submitter?.dataset.to || 'checking'; const note = f.querySelector('input').value.trim() || null;
+    if (to === 'accept') {
+      const { data: m, error } = await db.rpc('accept_application', { p_id: f.dataset.app, p_note: note });
+      if (error) return fail(error, 'Accepting');
+      toast(m + (m.includes('field agent') ? ' You can add more towns for them in My region.' : ''));
+    } else {
+      const { error } = await db.from('team_applications').update({ status: to, staff_note: note }).eq('id', f.dataset.app);
+      if (error) return fail(error, 'Saving');
+      toast(to === 'declined' ? 'Application declined.' : 'Saved.');
+    }
+    applications(u, params);
   }));
 }
 

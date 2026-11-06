@@ -261,3 +261,14 @@ body.has-cta { padding-bottom: 70px; }
 .flyer-full { width: 100%; border-radius: var(--radius); border: 1px solid var(--line); background: #fff; }
 .donate-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: var(--green-soft); border-radius: var(--radius); padding: 12px 16px; font-size: .95rem; }
 .donate-box { border: 2px solid var(--gold); background: var(--gold-soft); margin: 14px 0; }
+
+.role-cards { display: grid; gap: 12px; margin-bottom: 14px; }
+@media (min-width: 760px) { .role-cards { grid-template-columns: repeat(3, 1fr); } }
+.role-cards .panel h3 { margin: 0 0 6px; }
+.role-cards .panel p { margin: 0 0 8px; }
+.app-card dl.kv { margin: 6px 0; }
+.status-new { background: var(--gold-soft); color: #7a5000; }
+.status-checking { background: #e7f1fb; color: #1d4f8a; }
+.status-accepted { background: #e5f4e4; color: #1f6b2a; }
+.status-declined { background: #f6e4e2; color: var(--red); }
+#ja .check { white-space: normal; display: flex; padding: 6px 0; }

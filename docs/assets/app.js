@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=27';
-import { SAMPLE_LISTINGS } from './sample.js?v=27';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=28';
+import { SAMPLE_LISTINGS } from './sample.js?v=28';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=27');
+      const dash = await import('./dash.js?v=28');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -47,6 +47,7 @@ async function render() {
     if (parts[0] === 'permits') return permitsPage();
     if (parts[0] === 'about') return aboutPage();
     if (parts[0] === 'donate') return donatePage();
+    if (parts[0] === 'join') return joinPage();
     if (parts[0] === 'list') return listPage();
     return notFound();
   } catch (e) {
@@ -488,6 +489,40 @@ function aboutPage() {
     <p>Full details of every project and programme will be on the MEYE CATHOLIC ASOREBA website, coming soon.</p>
     <div class="cta-band" style="margin-top:14px"><div><b>NHYIAMU is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
+    <h2>Work with us</h2>
+    <p>NHYIAMU is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents, moderators and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
+  </div>`;
+}
+
+function joinPage() {
+  document.title = 'Join the NHYIAMU team';
+  app.innerHTML = `<div class="wrap section prose">
+    ${banner('about', 'Join the NHYIAMU team')}
+    <p>NHYIAMU is built by local people in every town. We give <b>priority to people who are unemployed</b>, so that the site creates work as it grows.</p>
+    <h2>The roles</h2>
+    <div class="role-cards">
+      <div class="panel"><h3>Field agent</h3><p>Visit event suppliers and market sellers in your town, help them list on NHYIAMU, take photos and verify them.</p><p class="muted"><b>Pay:</b> commission. 50% of the first month when a supplier you registered buys a Top spot or Featured place, then 20% of every later payment.</p></div>
+      <div class="panel"><h3>Moderator</h3><p>Check new listings and flyers on your phone, and handle reports from visitors.</p><p class="muted"><b>Pay:</b> moderators share 10% of NHYIAMU's monthly income, split by the work each one does.</p></div>
+      <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: check applicants, hire and guide field agents and moderators, and open new towns.</p><p class="muted"><b>Pay:</b> 10% of the income from your region every month.</p></div>
+    </div>
+    <p class="notice" style="background:var(--gold-soft)">All pay is commission. It starts small and grows as more suppliers in your area join and pay for extras. It works best alongside other work or study at first.</p>
+    <h2>What you need</h2>
+    <ul>
+      <li>You are 18 or older, live in the area, and have a smartphone with WhatsApp.</li>
+      <li>You are honest, polite and willing to walk around your town meeting people.</li>
+      <li><b>One of these:</b>
+        <ul>
+          <li><b>A recommendation from your pastor</b>, who we will call to confirm, or</li>
+          <li><b>A parent or guardian as your guarantor</b>: they vouch for your character and agree to help put things right if anything entrusted to you is mishandled.</li>
+        </ul></li>
+    </ul>
+    <h2>How it works</h2>
+    <ol>
+      <li>Create a free account and fill in the short application.</li>
+      <li>The regional coordinator calls you, then your pastor or guarantor.</li>
+      <li>If all is well, you are accepted and your account opens the tools for your role.</li>
+    </ol>
+    <div class="cta-band" style="margin-top:14px"><div><b>Ready to apply?</b><br><span class="muted">It takes about 5 minutes. Have your pastor's or guarantor's phone number ready.</span></div><a class="btn" href="#/me/join">Apply now</a></div>
   </div>`;
 }
 
