@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=33';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=34';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -201,7 +201,7 @@ async function resetPassword() {
 async function home(u) {
   shell(u, 'home', 'My account', '<div class="skeleton"></div>');
   const { data: listings, error } = await db.from('listings')
-    .select('id,slug,business_name,status,reject_reason,verified,founding,last_confirmed_at,updated_at,towns(name),listing_photos(path,sort)')
+    .select('id,slug,business_name,status,reject_reason,verified,founding,last_confirmed_at,updated_at,pending_contact,towns(name),listing_photos(path,sort)')
     .eq('owner_id', u.id).order('updated_at', { ascending: false });
   if (error) return fail(error, 'Loading your listings');
   const ids = listings.map((l) => l.id);
@@ -239,6 +239,7 @@ async function home(u) {
           <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding">Founding</span>' : ''}</div></div>
         ${l.status === 'rejected' && l.reject_reason ? `<div class="notice error">Not approved: ${esc(l.reject_reason)}. Please fix and submit again.</div>` : ''}
         ${l.status === 'draft' ? '<div class="notice">Draft — not visible yet. Submit it when you are ready.</div>' : ''}
+        ${l.pending_contact ? `<div class="notice" style="background:var(--gold-soft)">New number ${esc(localPhone(l.pending_contact.phone))} is waiting for a moderator to check it.</div>` : ''}
         ${l.status === 'pending' ? '<div class="notice" style="background:var(--gold-soft)">Waiting for a moderator to check it (usually within 48 hours).</div>' : ''}
         ${l.status === 'live' ? `<span class="muted" style="font-size:.88rem">Last 30 days: ${count(l.id, 'view')} views · ${count(l.id, 'whatsapp')} WhatsApp taps · ${count(l.id, 'call')} call taps</span>` : ''}
         ${l.status === 'live' && stale(l) ? '<div class="notice" style="background:var(--gold-soft)">Are your details still correct? Please confirm so visitors know your listing is up to date.</div>' : ''}
@@ -331,6 +332,7 @@ async function editor(u, id, asAgent) {
   shell(u, asAgent ? 'register' : 'home', title, `
   ${agentMode && isNew ? '<div class="notice" style="margin-bottom:12px">Fill this in <b>with the supplier present</b>, using their details. The listing will be credited to you.</div>' : ''}
   ${l?.status === 'rejected' && l.reject_reason ? `<div class="notice error" style="margin-bottom:12px">Not approved: ${esc(l.reject_reason)}</div>` : ''}
+  ${l?.pending_contact ? `<div class="notice" style="margin-bottom:12px;background:var(--gold-soft)">Your new number (${esc(localPhone(l.pending_contact.phone))}${l.pending_contact.whatsapp !== l.pending_contact.phone ? `, WhatsApp ${esc(localPhone(l.pending_contact.whatsapp))}` : ''}) is waiting for a moderator to check it. Until then visitors still see ${esc(localPhone(l.phone))}.</div>` : ''}
   <form class="form" id="ed" style="max-width:760px">
     <fieldset><legend>The business</legend>
       <div class="field"><label for="e-name">Business name</label><input type="text" id="e-name" required maxlength="80" value="${v('business_name')}"></div>
@@ -349,8 +351,8 @@ async function editor(u, id, asAgent) {
     <fieldset><legend>Contact</legend>
       <div class="form-grid two">
         <div class="field"><label for="e-contact">Contact person</label><input type="text" id="e-contact" required value="${v('contact_name', isNew && !asAgent ? u.full_name || '' : '')}"></div>
-        <div class="field"><label for="e-phone">Phone for calls</label><input type="tel" id="e-phone" required placeholder="024 123 4567" value="${esc(localPhone(l?.phone || (isNew && !asAgent ? u.phone : '')))}"></div>
-        <div class="field"><label for="e-wa">WhatsApp number</label><input type="tel" id="e-wa" required placeholder="024 123 4567" value="${esc(localPhone(l?.whatsapp || (isNew && !asAgent ? u.phone : '')))}"></div>
+        <div class="field"><label for="e-phone">Phone for calls</label><input type="tel" id="e-phone" required placeholder="024 123 4567" value="${esc(localPhone(l?.pending_contact?.phone || l?.phone || (isNew && !asAgent ? u.phone : '')))}"></div>
+        <div class="field"><label for="e-wa">WhatsApp number</label><input type="tel" id="e-wa" required placeholder="024 123 4567" value="${esc(localPhone(l?.pending_contact?.whatsapp || l?.whatsapp || (isNew && !asAgent ? u.phone : '')))}"></div>
       </div>
     </fieldset>
     <fieldset><legend>Where</legend>
@@ -454,7 +456,8 @@ async function editor(u, id, asAgent) {
         if (error) throw error;
       }
       clearMe();
-      toast(action === 'submit' ? 'Saved and submitted for review.' : 'Saved.');
+      const numberChanged = !isNew && ['live', 'suspended'].includes(l.status) && (phone !== l.phone || whatsapp !== l.whatsapp) && (phone !== l.pending_contact?.phone || whatsapp !== l.pending_contact?.whatsapp);
+      toast(action === 'submit' ? 'Saved and submitted for review.' : numberChanged ? 'Saved. Your new number will show once a moderator checks it.' : 'Saved.');
       if (isNew) go(`/me/edit/${listingId}`); else editor(u, listingId, asAgent);
     } catch (err) {
       msg.innerHTML = `<div class="notice error">Could not save: ${esc(err.message)}</div>`;
@@ -778,7 +781,7 @@ async function tally(u, params) {
     const rows = me || [];
     const pool = rows[0]?.pool ?? 0, income = rows[0]?.month_income ?? 0;
     document.getElementById('mod-earn').innerHTML = `<h2 style="margin-top:${isMod ? 0 : 26}px">${isMod ? 'My pay as moderator' : 'Moderator pay'}</h2>
-      <p class="muted" style="margin-top:-4px">Moderators share 10% of the month's income (Top spot, Featured and flyer payments; donations are not counted), split by work done: listings and flyers approved or rejected, and reports closed. This month: income ${cedi(income)}, moderators' share ${cedi(pool)}.</p>
+      <p class="muted" style="margin-top:-4px">Moderators share 10% of the month's income (Top spot, Featured and flyer payments; donations are not counted), split by work done: listings and flyers approved or rejected, phone number changes checked, and reports closed. This month: income ${cedi(income)}, moderators' share ${cedi(pool)}.</p>
       <div style="overflow-x:auto"><table class="table"><thead><tr><th>Moderator</th><th>Listings</th><th>Flyers</th><th>Reports</th><th>Total work</th><th>Pay</th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td><b>${esc(r.moderator_name || '—')}</b><br><span class="muted">${esc(r.moderator_email || '')}</span></td><td>${r.listings}</td><td>${r.flyers}</td><td>${r.reports}</td><td>${r.work}</td><td><b>${cedi(r.earnings)}</b></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No moderators yet.</td></tr>'}
       </tbody></table></div>${isMod ? '<p class="hint">Your pay grows with the work you do and with the site\'s income.</p>' : '<p class="hint">Work you do yourself as admin is not paid and does not reduce the moderators\' shares. Work is counted from 6 November 2026, when this record started.</p>'}`;
@@ -820,7 +823,8 @@ async function reviewQueue(u) {
         <a class="btn btn-ghost" href="#/l/${esc(l.slug)}">Preview</a>
       </div>
       <form class="filters" data-reject="${l.id}"><input type="text" required placeholder="Reason, e.g. please add photos of your work"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>
-    </div>`; }).join('') : '<div class="empty"><p class="muted" style="margin:0">No listings waiting for review.</p></div>'}</div><div id="flyer-queue"></div>`;
+    </div>`; }).join('') : '<div class="empty"><p class="muted" style="margin:0">No listings waiting for review.</p></div>'}</div><div id="contact-queue"></div><div id="flyer-queue"></div>`;
+  contactQueue(document.getElementById('contact-queue'), u);
   flyerQueue(document.getElementById('flyer-queue'), u);
   document.querySelectorAll('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
     b.disabled = true;
@@ -833,6 +837,33 @@ async function reviewQueue(u) {
     const { error } = await db.rpc('reject_listing', { p_id: f.dataset.reject, p_reason: f.querySelector('input').value.trim() });
     if (error) return fail(error, 'Sending back');
     toast('Sent back to the supplier with your reason.'); document.querySelector(`[data-row="${f.dataset.reject}"]`)?.remove();
+  }));
+}
+
+// Live listings whose owner changed the phone / WhatsApp number: approve before visitors see it
+async function contactQueue(container, u) {
+  const { data } = await db.from('listings').select('id,slug,business_name,phone,whatsapp,pending_contact,towns(name)').not('pending_contact', 'is', null).order('updated_at');
+  if (!(data || []).length) { container.innerHTML = ''; return; }
+  container.innerHTML = `<h2 style="margin-top:26px">New phone numbers to check</h2><p class="muted">These suppliers changed their number on a live listing. Visitors still see the old number. Call or WhatsApp the new number to confirm it belongs to the same business.</p>
+    <div class="row-list">${data.map((l) => `<div class="row" data-crow="${l.id}">
+      <div class="row-top"><div><b><a href="#/l/${esc(l.slug)}">${esc(l.business_name)}</a></b> <span class="muted">· ${esc(l.towns?.name || '')}</span></div>
+        <span class="muted" style="font-size:.85rem">${new Date(l.pending_contact.at).toLocaleDateString('en-GB')}</span></div>
+      <dl class="kv"><dt>Now</dt><dd>📞 ${esc(localPhone(l.phone))} · WhatsApp ${esc(localPhone(l.whatsapp))}</dd>
+        <dt>New</dt><dd><b>📞 ${esc(localPhone(l.pending_contact.phone))} · WhatsApp ${esc(localPhone(l.pending_contact.whatsapp))}</b></dd></dl>
+      <div class="row-actions">
+        <a class="btn btn-ghost" href="tel:${esc(l.pending_contact.phone)}">Call new number</a>
+        <button class="btn" data-capprove="${l.id}">Approve new number</button>
+        <button class="btn btn-ghost" data-creject="${l.id}">Keep old number</button>
+      </div></div>`).join('')}</div>`;
+  container.querySelectorAll('[data-capprove]').forEach((b) => b.addEventListener('click', async () => {
+    const { error } = await db.rpc('approve_contact_change', { p_id: b.dataset.capprove });
+    if (error) return fail(error, 'Approving the number');
+    toast('New number approved.'); container.querySelector(`[data-crow="${b.dataset.capprove}"]`)?.remove();
+  }));
+  container.querySelectorAll('[data-creject]').forEach((b) => b.addEventListener('click', async () => {
+    const { error } = await db.rpc('reject_contact_change', { p_id: b.dataset.creject });
+    if (error) return fail(error, 'Keeping the old number');
+    toast('Old number kept.'); container.querySelector(`[data-crow="${b.dataset.creject}"]`)?.remove();
   }));
 }
 
