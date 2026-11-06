@@ -7,5 +7,6 @@ window.EVENTS_HUB = {
   uploadApi: 'https://nhyiamu-api.mcadesk.org',
   // Paystack PUBLIC key (safe to publish). The secret key is only in Supabase Vault.
   paystackKey: 'pk_live_8b4bda8d0abdd4bc04eb7dcdb40cc0bf0e5e88ba',
+  mcaSite: 'https://claude.ai/artifact/SLWAVsm3bgUUfsCn16GKuX',
   defaultTown: 'ejisu-besease'
 };

@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=36';
-import { SAMPLE_LISTINGS } from './sample.js?v=36';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=37';
+import { SAMPLE_LISTINGS } from './sample.js?v=37';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=36');
+      const dash = await import('./dash.js?v=37');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -487,10 +487,10 @@ function aboutPage() {
   app.innerHTML = `<div class="wrap section prose">
     ${banner('about', 'About NHYIAMU')}
     <p>NHYIAMU is a free directory that helps families, churches, schools and businesses across Ghana find everything they need for an event — and helps local suppliers get found.</p>
-    <p>NHYIAMU is a project of <b>MEYE CATHOLIC ASOREBA</b>. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers.</p>
+    <p>NHYIAMU is a project of <a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener"><b>MEYE CATHOLIC ASOREBA</b></a>, a Catholic group in Ghana that proclaims the faith in Asante Twi. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers.</p>
     <h2>Where the money goes</h2>
     <p>Money left after running NHYIAMU supports the projects and foundation programmes of MEYE CATHOLIC ASOREBA.</p>
-    <p>Full details of every project and programme will be on the MEYE CATHOLIC ASOREBA website, coming soon.</p>
+    <p><a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener">Visit the MEYE CATHOLIC ASOREBA website ↗</a> to learn about the mission and its projects.</p>
     <div class="cta-band" style="margin-top:14px"><div><b>NHYIAMU is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
     <h2>Work with us</h2>
@@ -646,7 +646,7 @@ async function donatePage() {
         ${st.donate_name ? `<p class="muted" style="margin:2px 0 0">Name: ${esc(st.donate_name)}</p>` : ''}
         <p class="muted" style="margin:8px 0 0;font-size:.9rem">Use <b>"Donation"</b> and the phone number on your NHYIAMU account as the reference, so we can add the Supporter badge to your business. Thank you!</p></div>`
       : `<div class="notice">Donation details will be shared here very soon.</div>`}
-    <p class="muted">Full details of all MEYE CATHOLIC ASOREBA projects and programmes will be on its website, coming soon.</p>
+    <p class="muted">Learn about the mission and the projects your gift supports on the <a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener">MEYE CATHOLIC ASOREBA website ↗</a>.</p>
   </div>`;
 }
 
