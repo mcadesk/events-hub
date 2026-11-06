@@ -1,11 +1,11 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=21';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=22';
 
 let REF;
 const BASE = location.origin + location.pathname;
 const STAFF = ['moderator', 'admin'];
-const ROLE_LABEL = { host: 'Member', supplier: 'Supplier', agent: 'Field agent', moderator: 'Moderator', partner: 'Loan partner', admin: 'Admin' };
+const ROLE_LABEL = { host: 'Member', supplier: 'Supplier', agent: 'Field agent', coordinator: 'Regional coordinator', moderator: 'Moderator', partner: 'Loan partner', admin: 'Admin' };
 
 export async function route(parts, params) {
   REF = await ref();
@@ -19,14 +19,15 @@ export async function route(parts, params) {
     new: () => editor(u, null, false),
     edit: () => editor(u, parts[2], false),
     register: () => need(u, ['agent', ...STAFF]) && editor(u, null, true),
-    agent: () => need(u, ['agent', ...STAFF]) && agentHome(u),
+    agent: () => need(u, ['agent', 'coordinator', ...STAFF]) && agentHome(u),
+    region: () => need(u, ['coordinator']) && regionHome(u, params),
     review: () => need(u, STAFF) && reviewQueue(u),
-    reports: () => need(u, STAFF) && reportsQueue(u),
+    reports: () => need(u, [...STAFF, 'coordinator']) && reportsQueue(u),
     all: () => need(u, STAFF) && allListings(u, params),
     people: () => need(u, ['admin']) && people(u, params),
-    towns: () => need(u, ['admin']) && townsAdmin(u),
+    towns: () => need(u, ['admin', 'coordinator']) && townsAdmin(u),
     featured: () => need(u, ['admin']) && featuredAdmin(u),
-    tally: () => need(u, ['agent', 'admin']) && tally(u, params),
+    tally: () => need(u, ['agent', 'admin', 'coordinator']) && tally(u, params),
     partners: () => need(u, ['admin']) && partnersAdmin(u),
     enquiries: () => need(u, ['partner', 'admin']) && enquiries(u),
     profile: () => profile(u),
@@ -52,15 +53,16 @@ function shell(u, active, title, body) {
     <nav class="tabs" aria-label="Account sections">
       ${t('home', 'My listings')}
       ${t('flyer', 'Post a flyer')}
-      ${t('agent', 'My towns', ['agent', 'admin'])}
+      ${t('region', 'My region', ['coordinator'])}
+      ${t('agent', u.role === 'coordinator' ? 'Waiting for a visit' : 'My towns', ['agent', 'coordinator', 'admin'])}
       ${t('register', 'Register a supplier', ['agent', 'moderator', 'admin'])}
       ${t('review', 'Pending review', STAFF)}
-      ${t('reports', 'Reports', STAFF)}
+      ${t('reports', 'Reports', [...STAFF, 'coordinator'])}
       ${t('all', 'All listings', STAFF)}
       ${t('people', 'People', ['admin'])}
-      ${t('towns', 'Towns', ['admin'])}
+      ${t('towns', 'Towns', ['admin', 'coordinator'])}
       ${t('featured', 'Featured', ['admin'])}
-      ${t('tally', u.role === 'agent' ? 'My tally' : 'Agent tally', ['agent', 'admin'])}
+      ${t('tally', u.role === 'agent' ? 'My tally' : 'Agent tally', ['agent', 'admin', 'coordinator'])}
       ${t('partners', 'Loan partners', ['admin'])}
       ${t('enquiries', 'Loan enquiries', ['partner', 'admin'])}
       ${t('profile', 'My details')}
@@ -604,11 +606,89 @@ async function flyerQueue(container, u) {
   }));
 }
 
+
+/* ---------- regional coordinator ---------- */
+async function myRegionTowns(u) {
+  const { data: regs } = await db.from('coordinator_regions').select('region_id,regions(name)').eq('coordinator_id', u.id);
+  const ids = (regs || []).map((r) => r.region_id);
+  if (!ids.length) return { regions: [], towns: [] };
+  const { data: towns } = await db.from('towns').select('id,name,slug,active,lat,lng,district_id,districts!inner(id,name,region_id)').in('districts.region_id', ids).order('name');
+  return { regions: regs.map((r) => r.regions?.name), towns: towns || [] };
+}
+
+async function regionHome(u, params) {
+  const q = params.get('q') || '';
+  shell(u, 'region', 'My region', '<div class="skeleton"></div>');
+  const { regions, towns } = await myRegionTowns(u);
+  if (!regions.length) {
+    document.getElementById('dash').innerHTML = '<div class="empty"><h3>No region assigned yet</h3><p class="muted">Ask the admin to assign you a region.</p></div>';
+    return;
+  }
+  const ym = new Date().toISOString().slice(0, 7);
+  const [from, to] = monthRange(ym);
+  const [{ data: stats }, found] = await Promise.all([
+    db.rpc('agent_stats', { p_from: from, p_to: to }),
+    q ? db.from('profiles').select('id,full_name,email,phone,role').or(`email.ilike.%${q}%,full_name.ilike.%${q}%`).limit(20) : Promise.resolve({ data: [] })
+  ]);
+  const agentIds = (stats || []).map((s) => s.agent_id).concat((found.data || []).filter((p) => p.role === 'agent').map((p) => p.id));
+  const { data: at } = agentIds.length ? await db.from('agent_towns').select('agent_id,town_id').in('agent_id', [...new Set(agentIds)]) : { data: [] };
+  const townsOf = (id) => (at || []).filter((a) => a.agent_id === id).map((a) => a.town_id);
+  const townName = (id) => towns.find((t) => t.id === id)?.name || '';
+  const byDistrict = {};
+  towns.forEach((t) => { (byDistrict[t.districts.name] ||= []).push(t); });
+  const townChecks = (agentId) => Object.entries(byDistrict).sort(([a], [b]) => a.localeCompare(b)).map(([d, ts]) => `<details><summary>${esc(d)}</summary><div class="checks" style="margin:6px 0 8px">${ts.map((t) =>
+    `<label class="check"><input type="checkbox" value="${t.id}" ${townsOf(agentId).includes(t.id) ? 'checked' : ''}> ${esc(t.name)}${t.active ? '' : ' <span class="muted">(hidden)</span>'}</label>`).join('')}</div></details>`).join('');
+  const agentRow = (p, s) => `<div class="row" data-agent="${p.id}">
+    <div class="row-top"><div><b>${esc(p.name || '—')}</b><br><span class="muted">${esc(p.email || '')}</span></div>
+      ${s ? `<span class="muted" style="font-size:.88rem">This month: ${s.registered} registered · ${s.verified} verified · ${s.live} live in total</span>` : ''}</div>
+    <span class="muted" style="font-size:.9rem">Towns: ${townsOf(p.id).map(townName).filter(Boolean).join(', ') || 'none yet'}</span>
+    <details><summary>Assign towns</summary>${townChecks(p.id)}<button class="btn btn-small" data-save-towns>Save towns</button></details>
+    <div class="row-actions"><button class="btn btn-ghost" data-unagent>Remove as agent</button></div></div>`;
+  document.getElementById('dash').innerHTML = `
+    <p>You coordinate: <b>${regions.map(esc).join(', ')}</b> · ${towns.filter((t) => t.active).length} towns open, ${towns.filter((t) => !t.active).length} hidden.</p>
+    <div class="row-actions" style="margin-bottom:16px"><a class="btn btn-ghost" href="#/me/agent">Waiting for a visit</a><a class="btn btn-ghost" href="#/me/reports">Reports</a><a class="btn btn-ghost" href="#/me/towns">Towns</a><a class="btn btn-ghost" href="#/me/tally">Tally</a></div>
+    <h2>Recruit an agent</h2>
+    <p class="muted">Ask the person to create a free NHYIAMU account first, then find them here.</p>
+    <form class="filters" id="rc-f" style="margin-bottom:12px"><input type="search" id="rc-q" placeholder="Search by email or name" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
+    ${q ? `<div class="row-list" style="margin-bottom:20px">${(found.data || []).map((p) => p.role === 'agent'
+        ? agentRow({ id: p.id, name: p.full_name, email: p.email }, (stats || []).find((s) => s.agent_id === p.id))
+        : `<div class="row"><div class="row-top"><div><b>${esc(p.full_name || '—')}</b><br><span class="muted">${esc(p.email || '')} · ${esc(localPhone(p.phone))}</span></div>
+           <button class="btn btn-small" data-make="${p.id}">Make agent</button></div></div>`).join('') || '<p class="muted">No one found. They may need to create an account first.</p>'}</div>` : ''}
+    <h2>Agents in my region</h2>
+    <div class="row-list">${(stats || []).map((s) => agentRow({ id: s.agent_id, name: s.agent_name, email: s.agent_email }, s)).join('') || '<div class="empty"><p class="muted" style="margin:0">No agents yet. Recruit one above, then assign their towns.</p></div>'}</div>`;
+  document.getElementById('rc-f').addEventListener('submit', (e) => { e.preventDefault(); go(`/me/region?q=${encodeURIComponent(document.getElementById('rc-q').value.trim())}`); });
+  document.querySelectorAll('[data-make]').forEach((b) => b.addEventListener('click', async () => {
+    const { error } = await db.rpc('coordinator_set_agent', { p_user: b.dataset.make, p_agent: true });
+    if (error) return fail(error, 'Making agent');
+    toast('Now an agent. Assign their towns below.'); regionHome(u, params);
+  }));
+  document.querySelectorAll('[data-agent]').forEach((row) => {
+    const id = row.dataset.agent;
+    row.querySelector('[data-save-towns]').addEventListener('click', async () => {
+      const ids = [...row.querySelectorAll('.checks input:checked')].map((c) => Number(c.value));
+      const mineInRegion = townsOf(id).filter((t) => towns.some((x) => x.id === t));
+      if (mineInRegion.length) await db.from('agent_towns').delete().eq('agent_id', id).in('town_id', mineInRegion);
+      if (ids.length) {
+        const { error } = await db.from('agent_towns').insert(ids.map((t) => ({ agent_id: id, town_id: t })));
+        if (error) return fail(error, 'Saving towns');
+      }
+      toast('Towns saved.'); regionHome(u, params);
+    });
+    row.querySelector('[data-unagent]').addEventListener('click', async () => {
+      const { error } = await db.rpc('coordinator_set_agent', { p_user: id, p_agent: false });
+      if (error) return fail(error, 'Removing agent');
+      toast('No longer an agent.'); regionHome(u, params);
+    });
+  });
+}
+
 /* ---------- field agent ---------- */
 async function agentHome(u) {
   shell(u, 'agent', 'My towns', '<div class="skeleton"></div>');
-  const { data: mine } = await db.from('agent_towns').select('town_id').eq('agent_id', u.id);
-  const townIds = (mine || []).map((t) => t.town_id);
+  let townIds;
+  if (u.role === 'coordinator') townIds = (await myRegionTowns(u)).towns.map((t) => t.id);
+  else { const { data: mine } = await db.from('agent_towns').select('town_id').eq('agent_id', u.id); townIds = (mine || []).map((t) => t.town_id); }
+  if (u.role === 'coordinator' && !townIds.length) { document.getElementById('dash').innerHTML = '<div class="empty"><p class="muted" style="margin:0">No region assigned yet.</p></div>'; return; }
   if (!townIds.length && u.role === 'agent') {
     document.getElementById('dash').innerHTML = '<div class="empty"><h3>No towns assigned yet</h3><p class="muted">Ask the admin to assign you to your towns.</p><a class="btn" href="#/me/register">Register a supplier anyway</a></div>';
     return;
@@ -617,8 +697,8 @@ async function agentHome(u) {
   if (townIds.length) q = q.in('base_town_id', townIds);
   const { data: todo } = await q;
   document.getElementById('dash').innerHTML = `
-    <p>${townIds.length ? `Your towns: <b>${townIds.map((id) => esc(REF.townById[id]?.name)).join(', ')}</b>` : 'You see all towns.'}</p>
-    <div class="row-actions" style="margin-bottom:16px"><a class="btn" href="#/me/register">+ Register a supplier</a><a class="btn btn-ghost" href="#/me/tally">My tally</a></div>
+    <p>${u.role === 'coordinator' ? 'Listings in your region that no one has verified yet.' : townIds.length ? `Your towns: <b>${townIds.map((id) => esc(REF.townById[id]?.name)).join(', ')}</b>` : 'You see all towns.'}</p>
+    ${u.role === 'coordinator' ? '' : '<div class="row-actions" style="margin-bottom:16px"><a class="btn" href="#/me/register">+ Register a supplier</a><a class="btn btn-ghost" href="#/me/tally">My tally</a></div>'}
     <h2>Waiting for a visit</h2><p class="muted">Visit these suppliers, check the business is real, then mark them verified.</p>
     <div class="row-list">${(todo || []).length ? todo.map((l) => `<div class="row"><div class="row-top"><div><b>${esc(l.business_name)}</b><br><span class="muted">${esc(l.towns?.name)}</span></div>${statusBadge(l.status)}</div>
       <div class="row-actions"><a class="btn btn-ghost" href="#/l/${esc(l.slug)}">View</a><button class="btn" data-verify="${l.id}">Mark verified (I visited)</button></div></div>`).join('')
@@ -702,7 +782,7 @@ async function reportsQueue(u) {
     ${r.reviews ? `<div class="muted">Review: "${esc(r.reviews.comment || '')}"</div>` : ''}
     <div class="row-actions">
       ${r.listings ? (r.listings.status === 'suspended' ? `<button class="btn btn-ghost" data-status="live" data-listing="${r.listings.id}">Restore listing</button>` : `<button class="btn btn-ghost" data-status="suspended" data-listing="${r.listings.id}">Suspend listing</button>`) : ''}
-      ${r.reviews ? `<button class="btn btn-ghost" data-hide="${r.reviews.id}">Hide review</button>` : ''}
+      ${r.reviews && STAFF.includes(u.role) ? `<button class="btn btn-ghost" data-hide="${r.reviews.id}">Hide review</button>` : ''}
       <button class="btn" data-resolve="${r.id}" data-s="resolved">Resolved</button>
       <button class="btn btn-ghost" data-resolve="${r.id}" data-s="dismissed">Dismiss</button>
     </div></div>`).join('') : '<div class="empty"><p class="muted" style="margin:0">No open reports.</p></div>'}</div>`;
@@ -763,6 +843,11 @@ async function people(u, params) {
   const list = peopleRes.data || [];
   const { data: at } = await db.from('agent_towns').select('agent_id,town_id').in('agent_id', list.filter((p) => p.role === 'agent').map((p) => p.id).concat(['00000000-0000-0000-0000-000000000000']));
   const townsOf = (id) => (at || []).filter((a) => a.agent_id === id).map((a) => a.town_id);
+  const [{ data: allRegions }, { data: cr }] = await Promise.all([
+    db.from('regions').select('id,name').order('name'),
+    db.from('coordinator_regions').select('coordinator_id,region_id')
+  ]);
+  const regionsOf = (id) => (cr || []).filter((c) => c.coordinator_id === id).map((c) => c.region_id);
   const o = overview || {};
   document.getElementById('dash').innerHTML = `
     <div class="stat-grid" style="margin-bottom:18px">
@@ -781,6 +866,8 @@ async function people(u, params) {
         <button class="btn btn-small" data-save-role>Save role</button></div></div>
       ${p.role === 'agent' ? `<details><summary>Assigned towns (${townsOf(p.id).length})</summary><div class="checks" style="margin-top:8px">${REF.towns.map((t) => `<label class="check"><input type="checkbox" value="${t.id}" ${townsOf(p.id).includes(t.id) ? 'checked' : ''}> ${esc(t.name)}</label>`).join('')}</div>
         <button class="btn btn-small" data-save-towns style="margin-top:8px">Save towns</button></details>` : ''}
+      ${p.role === 'coordinator' ? `<details open><summary>Regions they coordinate (${regionsOf(p.id).length})</summary><div class="checks" data-regions style="margin-top:8px">${(allRegions || []).map((r) => `<label class="check"><input type="checkbox" value="${r.id}" ${regionsOf(p.id).includes(r.id) ? 'checked' : ''}> ${esc(r.name)}</label>`).join('')}</div>
+        <button class="btn btn-small" data-save-regions style="margin-top:8px">Save regions</button></details>` : ''}
     </div>`).join('') || '<p class="muted">No one found.</p>'}</div>`;
   document.getElementById('pp-f').addEventListener('submit', (e) => { e.preventDefault(); go(`/me/people?q=${encodeURIComponent(document.getElementById('pp-q').value.trim())}`); });
   document.querySelectorAll('[data-person]').forEach((row) => {
@@ -790,6 +877,15 @@ async function people(u, params) {
       const { error } = await db.from('profiles').update({ role: row.querySelector('[data-role]').value }).eq('id', id);
       if (error) return fail(error, 'Saving the role');
       toast('Role saved.'); people(u, params);
+    });
+    row.querySelector('[data-save-regions]')?.addEventListener('click', async () => {
+      const ids = [...row.querySelectorAll('[data-regions] input:checked')].map((c) => Number(c.value));
+      await db.from('coordinator_regions').delete().eq('coordinator_id', id);
+      if (ids.length) {
+        const { error } = await db.from('coordinator_regions').insert(ids.map((r) => ({ coordinator_id: id, region_id: r })));
+        if (error) return fail(error, 'Saving regions');
+      }
+      toast('Regions saved.');
     });
     row.querySelector('[data-save-towns]')?.addEventListener('click', async () => {
       const ids = [...row.querySelectorAll('.checks input:checked')].map((c) => Number(c.value));
@@ -805,10 +901,18 @@ async function people(u, params) {
 
 async function townsAdmin(u) {
   shell(u, 'towns', 'Towns', '<div class="skeleton"></div>');
-  const [{ data: towns }, { data: districts }] = await Promise.all([
-    db.from('towns').select('id,name,slug,lat,lng,active,districts(name)').order('name'),
-    db.from('districts').select('id,name').order('name')
-  ]);
+  let towns, districts;
+  if (u.role === 'coordinator') {
+    const r = await myRegionTowns(u);
+    towns = r.towns;
+    const regionIds = (await db.from('coordinator_regions').select('region_id').eq('coordinator_id', u.id)).data.map((x) => x.region_id);
+    districts = (await db.from('districts').select('id,name').in('region_id', regionIds).order('name')).data || [];
+  } else {
+    [{ data: towns }, { data: districts }] = await Promise.all([
+      db.from('towns').select('id,name,slug,lat,lng,active,districts(name)').order('name'),
+      db.from('districts').select('id,name').order('name')
+    ]);
+  }
   document.getElementById('dash').innerHTML = `
     <form class="form panel" id="tw-f" style="max-width:560px;margin-bottom:18px"><h3 style="margin:0">Add a town</h3>
       <div class="form-grid two">
