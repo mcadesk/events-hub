@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=26';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=27';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -28,7 +28,7 @@ export async function route(parts, params) {
     towns: () => need(u, ['admin', 'coordinator']) && townsAdmin(u),
     featured: () => need(u, ['admin']) && featuredAdmin(u),
     donations: () => need(u, ['admin']) && donationsAdmin(u),
-    tally: () => need(u, ['agent', 'admin', 'coordinator']) && tally(u, params),
+    tally: () => need(u, ['agent', 'admin', 'coordinator', 'moderator']) && tally(u, params),
     partners: () => need(u, ['admin']) && partnersAdmin(u),
     enquiries: () => need(u, ['partner', 'admin']) && enquiries(u),
     profile: () => profile(u),
@@ -65,7 +65,7 @@ function shell(u, active, title, body) {
       ${t('towns', 'Towns', ['admin', 'coordinator'])}
       ${t('featured', 'Featured', ['admin'])}
       ${t('donations', 'Donations', ['admin'])}
-      ${t('tally', u.role === 'agent' ? 'My tally' : 'Agent tally', ['agent', 'admin', 'coordinator'])}
+      ${t('tally', u.role === 'agent' ? 'My tally' : u.role === 'moderator' ? 'My pay' : 'Agent tally', ['agent', 'admin', 'coordinator', 'moderator'])}
       ${t('partners', 'Loan partners', ['admin'])}
       ${t('enquiries', 'Loan enquiries', ['partner', 'admin'])}
       ${t('profile', 'My details')}
@@ -738,16 +738,28 @@ function monthRange(ym) {
 }
 async function tally(u, params) {
   const ym = params.get('m') || new Date().toISOString().slice(0, 7);
-  shell(u, 'tally', u.role === 'agent' ? 'My tally' : 'Agent tally', '<div class="skeleton"></div>');
+  shell(u, 'tally', u.role === 'agent' ? 'My tally' : u.role === 'moderator' ? 'My pay' : 'Agent tally', '<div class="skeleton"></div>');
   const [from, to] = monthRange(ym);
-  const { data, error } = await db.rpc('agent_stats', { p_from: from, p_to: to });
+  const isMod = u.role === 'moderator';
+  const { data, error } = isMod ? { data: [] } : await db.rpc('agent_stats', { p_from: from, p_to: to });
   if (error) return fail(error, 'Loading the tally');
   document.getElementById('dash').innerHTML = `
     <div class="field" style="max-width:220px;margin-bottom:12px"><label for="t-m">Month</label><input type="month" id="t-m" value="${ym}" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px;min-height:44px"></div>
-    <div style="overflow-x:auto"><table class="table"><thead><tr><th>Agent</th><th>Registered this month</th><th>Verified this month</th><th>Live listings (all time)</th></tr></thead>
+    ${isMod ? '' : `<div style="overflow-x:auto"><table class="table"><thead><tr><th>Agent</th><th>Registered this month</th><th>Verified this month</th><th>Live listings (all time)</th></tr></thead>
     <tbody>${(data || []).map((r) => `<tr><td><b>${esc(r.agent_name || '—')}</b><br><span class="muted">${esc(r.agent_email || '')}</span></td><td>${r.registered}</td><td>${r.verified}</td><td>${r.live}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No agents yet.</td></tr>'}</tbody></table></div>
-    <p class="hint">Commission is paid on featured fees from suppliers an agent registered: 50% of the first month's value, then 20% of later payments.</p>
+    <p class="hint">Commission is paid on featured fees from suppliers an agent registered: 50% of the first month's value, then 20% of later payments.</p>`}
+    <div id="mod-earn"></div>
     <div id="coord-earn"></div>`;
+  if (['admin', 'moderator'].includes(u.role)) {
+    const { data: me } = await db.rpc('moderator_earnings', { p_from: from, p_to: to });
+    const rows = me || [];
+    const pool = rows[0]?.pool ?? 0, income = rows[0]?.month_income ?? 0;
+    document.getElementById('mod-earn').innerHTML = `<h2 style="margin-top:${isMod ? 0 : 26}px">${isMod ? 'My pay as moderator' : 'Moderator pay'}</h2>
+      <p class="muted" style="margin-top:-4px">Moderators share 10% of the month's income (Top spot, Featured and flyer payments; donations are not counted), split by work done: listings and flyers approved or rejected, and reports closed. This month: income ${cedi(income)}, moderators' share ${cedi(pool)}.</p>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Moderator</th><th>Listings</th><th>Flyers</th><th>Reports</th><th>Total work</th><th>Pay</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td><b>${esc(r.moderator_name || '—')}</b><br><span class="muted">${esc(r.moderator_email || '')}</span></td><td>${r.listings}</td><td>${r.flyers}</td><td>${r.reports}</td><td>${r.work}</td><td><b>${cedi(r.earnings)}</b></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No moderators yet.</td></tr>'}
+      </tbody></table></div>${isMod ? '<p class="hint">Your pay grows with the work you do and with the site\'s income.</p>' : '<p class="hint">Work you do yourself as admin is not paid and does not reduce the moderators\' shares. Work is counted from 6 November 2026, when this record started.</p>'}`;
+  }
   document.getElementById('t-m').addEventListener('change', (e) => go(`/me/tally?m=${e.target.value}`));
   if (['admin', 'coordinator'].includes(u.role)) {
     const { data: ce } = await db.rpc('coordinator_earnings', { p_from: from, p_to: to });
