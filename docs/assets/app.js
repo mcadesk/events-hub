@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=17';
-import { SAMPLE_LISTINGS } from './sample.js?v=17';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=18';
+import { SAMPLE_LISTINGS } from './sample.js?v=18';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=17');
+      const dash = await import('./dash.js?v=18');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -236,14 +236,14 @@ async function results(townSlug, catSlug, params) {
 
 function card(l) {
   const img = photoUrl(l.photo);
-  return `<article class="card ${l.featured ? 'is-featured' : ''}">
+  return `<article class="card ${l.featured_level === 2 ? 'is-top' : l.featured ? 'is-featured' : ''}">
     <a class="card-photo" href="#/l/${esc(l.slug)}" aria-hidden="true" tabindex="-1">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : placeholder(l.business_name, hash(l.slug))}</a>
     <div class="card-body">
       <a class="card-title" href="#/l/${esc(l.slug)}">${esc(l.business_name)}</a>
       <div class="card-meta">${esc(l.town_name)}${l.rating ? ` · <span class="stars">★</span> ${l.rating} (${l.review_count})` : ''}${l.distance_km != null && l.travels ? ` · ${Math.round(l.distance_km)} km away` : ''}</div>
       <div class="price">${esc(priceText(l))}</div>
       <div class="badges">
-        ${l.featured ? '<span class="badge badge-featured">Featured</span>' : ''}
+        ${l.featured_level === 2 ? '<span class="badge badge-top">★ Top spot</span>' : l.featured ? '<span class="badge badge-featured">Featured</span>' : ''}
         ${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}
         ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
         ${l.travels ? '<span class="badge badge-travel">Travels to your area</span>' : ''}
@@ -483,8 +483,8 @@ function listPage() {
     </ul>
     <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and a moderator will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
-    <h2 style="margin-top:24px">Featured listing prices</h2>
-    <p class="muted">Optional. Featured suppliers appear at the top of their town and category (3 spots, shared in rotation).</p>
+    <h2 style="margin-top:24px">Optional: get seen first</h2>
+    <p class="muted">Listing is free. If you want to appear above other suppliers in your category and town, you can pay for a place at the top. Each category in each town has <b>2 Top spots</b> and <b>3 Featured places</b>, shared in daily rotation.</p>
     <div id="prices" class="panel">Loading…</div>
   </div>`;
   db.from('featured_prices').select('tier,months,amount').order('months').then(({ data }) => {
@@ -492,7 +492,7 @@ function listPage() {
     const row = (t) => data.filter((p) => p.tier === t).map((p) => `<td>${cedi(p.amount)}</td>`).join('');
     document.getElementById('prices').innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.95rem">
       <thead><tr><th style="text-align:left">Plan</th>${[...new Set(data.map((p) => p.months))].map((m) => `<th style="text-align:left">${m} month${m > 1 ? 's' : ''}</th>`).join('')}</tr></thead>
-      <tbody><tr><td><b>Standard</b></td>${row('standard')}</tr><tr><td><b>Premium</b><br><span class="muted" style="font-size:.8rem">Venues, hotels, planners</span></td>${row('premium')}</tr></tbody></table></div>`;
+      <tbody><tr><td><b>★ Top spot</b><br><span class="muted" style="font-size:.8rem">The very top (2 places)</span></td>${row('premium')}</tr><tr><td><b>Featured</b><br><span class="muted" style="font-size:.8rem">Just below (3 places)</span></td>${row('standard')}</tr></tbody></table></div>`;
   });
 }
 
@@ -516,7 +516,7 @@ function sampleSearch(town, scope, cat, q, verified) {
     .map((l) => {
       const base = REF.townBySlug[l.town_slug];
       const r = l.reviews || [];
-      return { ...l, town_name: base?.name, travels: base?.id !== town.id, photo: null,
+      return { ...l, featured_level: l.featured ? 2 : 0, town_name: base?.name, travels: base?.id !== town.id, photo: null,
         rating: r.length ? (r.reduce((a, x) => a + x.rating, 0) / r.length).toFixed(1) : null, review_count: r.length, distance_km: null };
     })
     .sort((a, b) => (b.featured - a.featured) || (b.verified - a.verified) || (a.travels - b.travels));

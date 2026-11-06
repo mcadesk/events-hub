@@ -244,3 +244,5 @@ body.has-cta { padding-bottom: 70px; }
 .prose .cat-banner { max-width: 100%; }
 .wrap.section { padding-left: 16px; padding-right: 16px; }
 .cat-banner { background-position: center 30%; }
+.badge-top { background: var(--gold); color: var(--ink); }
+.card.is-top { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 6px 18px rgba(253,177,1,.18); }

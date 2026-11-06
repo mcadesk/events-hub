@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=17';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=18';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -724,31 +724,32 @@ async function featuredAdmin(u) {
   shell(u, 'featured', 'Featured listings', '<div class="skeleton"></div>');
   const today = new Date().toISOString().slice(0, 10);
   const [{ data: slots }, { data: prices }] = await Promise.all([
-    db.from('featured_slots').select('id,months,amount,is_free,starts_on,ends_on,payment_ref,category_id,town_id,listings(business_name,slug)').gte('ends_on', today).order('ends_on'),
+    db.from('featured_slots').select('id,months,amount,is_free,starts_on,ends_on,payment_ref,category_id,town_id,position,listings(business_name,slug)').gte('ends_on', today).order('ends_on'),
     db.from('featured_prices').select('tier,months,amount')
   ]);
   document.getElementById('dash').innerHTML = `
-    <form class="form panel" id="fe-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Record a featured payment</h3>
+    <form class="form panel" id="fe-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Record a payment for a Top spot or Featured place</h3>
       <div class="field"><label for="fe-q">Listing</label><input type="search" id="fe-q" placeholder="Type the business name"><select id="fe-l" required><option value="">Search above…</option></select></div>
       <div class="form-grid two">
-        <div class="field"><label for="fe-c">Category</label><select id="fe-c">${REF.top.map((c) => `<option value="${c.id}" data-tier="${c.tier}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="fe-p">Position</label><select id="fe-p"><option value="top">★ Top spot (2 per category per town)</option><option value="featured" selected>Featured (3 per category per town)</option></select></div>
+        <div class="field"><label for="fe-c">Category</label><select id="fe-c">${REF.top.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
         <div class="field"><label for="fe-t">Town</label><select id="fe-t">${townOptions(null, 'id')}</select></div>
         <div class="field"><label for="fe-m">Plan</label><select id="fe-m">${[1, 3, 6, 12].map((m) => `<option value="${m}">${m} month${m > 1 ? 's' : ''}</option>`).join('')}</select></div>
         <div class="field"><label for="fe-a">Amount paid (GH₵)</label><input type="number" id="fe-a" min="0" required></div>
       </div>
       <div class="field"><label for="fe-r">MoMo / receipt reference</label><input type="text" id="fe-r" required></div>
       <button class="btn" type="submit">Make featured</button><div id="fe-msg"></div></form>
-    <h2>Active featured spots</h2>
+    <h2>Active paid places</h2>
     <table class="table"><thead><tr><th>Listing</th><th>Where</th><th>Until</th><th>Paid</th><th></th></tr></thead><tbody>
-      ${(slots || []).map((s) => `<tr><td><a href="#/l/${esc(s.listings?.slug)}">${esc(s.listings?.business_name)}</a></td><td>${esc(REF.catById[s.category_id]?.name)}, ${esc(REF.townById[s.town_id]?.name)}</td>
+      ${(slots || []).map((s) => `<tr><td><a href="#/l/${esc(s.listings?.slug)}">${esc(s.listings?.business_name)}</a><br><span class="badge ${s.position === 'top' ? 'badge-top' : 'badge-featured'}">${s.position === 'top' ? '★ Top spot' : 'Featured'}</span></td><td>${esc(REF.catById[s.category_id]?.name)}, ${esc(REF.townById[s.town_id]?.name)}</td>
         <td>${new Date(s.ends_on).toLocaleDateString('en-GB')}</td><td>${s.is_free ? 'Free (founding)' : cedi(s.amount)}${s.payment_ref ? `<br><span class="muted">${esc(s.payment_ref)}</span>` : ''}</td>
         <td><button class="linkish" data-end="${s.id}">End now</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">None yet.</td></tr>'}</tbody></table>`;
   const priceFor = () => {
-    const tier = document.getElementById('fe-c').selectedOptions[0].dataset.tier;
+    const tier = document.getElementById('fe-p').value === 'top' ? 'premium' : 'standard';
     const p = (prices || []).find((x) => x.tier === tier && x.months === Number(document.getElementById('fe-m').value));
     if (p) document.getElementById('fe-a').value = p.amount;
   };
-  ['fe-c', 'fe-m'].forEach((id) => document.getElementById(id).addEventListener('change', priceFor)); priceFor();
+  ['fe-p', 'fe-m'].forEach((id) => document.getElementById(id).addEventListener('change', priceFor)); priceFor();
   let found = [];
   document.getElementById('fe-q').addEventListener('input', async (e) => {
     const q = e.target.value.trim(); if (q.length < 2) return;
@@ -767,11 +768,12 @@ async function featuredAdmin(u) {
   document.getElementById('fe-f').addEventListener('submit', async (e) => {
     e.preventDefault();
     const cat = Number(document.getElementById('fe-c').value), town = Number(document.getElementById('fe-t').value), months = Number(document.getElementById('fe-m').value);
-    const active = (slots || []).filter((s) => s.category_id === cat && s.town_id === town).length;
-    if (active >= 3) return (document.getElementById('fe-msg').innerHTML = '<div class="notice error">This category already has 3 featured spots in this town. Put the supplier on the waiting list.</div>');
+    const position = document.getElementById('fe-p').value, limit = position === 'top' ? 2 : 3;
+    const active = (slots || []).filter((s) => s.category_id === cat && s.town_id === town && (s.position || 'featured') === position).length;
+    if (active >= limit) return (document.getElementById('fe-msg').innerHTML = `<div class="notice error">This category already has ${limit} ${position === 'top' ? 'Top spots' : 'Featured places'} taken in this town. Offer the other position, or put the supplier on the waiting list.</div>`);
     const end = new Date(); end.setMonth(end.getMonth() + months);
     const { error } = await db.from('featured_slots').insert({ listing_id: document.getElementById('fe-l').value, category_id: cat, town_id: town, months,
-      amount: Number(document.getElementById('fe-a').value), payment_ref: document.getElementById('fe-r').value.trim(), starts_on: today, ends_on: end.toISOString().slice(0, 10), created_by: u.id });
+      position, amount: Number(document.getElementById('fe-a').value), payment_ref: document.getElementById('fe-r').value.trim(), starts_on: today, ends_on: end.toISOString().slice(0, 10), created_by: u.id });
     if (error) return fail(error, 'Saving');
     toast('Listing is now featured.'); featuredAdmin(u);
   });
