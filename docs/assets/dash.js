@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=18';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=19';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -29,7 +29,8 @@ export async function route(parts, params) {
     tally: () => need(u, ['agent', 'admin']) && tally(u, params),
     partners: () => need(u, ['admin']) && partnersAdmin(u),
     enquiries: () => need(u, ['partner', 'admin']) && enquiries(u),
-    profile: () => profile(u)
+    profile: () => profile(u),
+    flyer: () => flyerForm(u, parts[2])
   };
   return (routes[sub] || routes.home)();
 }
@@ -50,6 +51,7 @@ function shell(u, active, title, body) {
     </div>
     <nav class="tabs" aria-label="Account sections">
       ${t('home', 'My listings')}
+      ${t('flyer', 'Post a flyer')}
       ${t('agent', 'My towns', ['agent', 'admin'])}
       ${t('register', 'Register a supplier', ['agent', 'moderator', 'admin'])}
       ${t('review', 'Pending review', STAFF)}
@@ -478,6 +480,127 @@ async function shrink(file, max = 1280, quality = 0.75) {
   return new Promise((res) => c.toBlob(res, 'image/jpeg', quality));
 }
 
+
+/* ---------- event flyers ---------- */
+async function getSettings() {
+  const { data } = await db.from('app_settings').select('key,value');
+  return Object.fromEntries((data || []).map((r) => [r.key, r.value]));
+}
+function payNote(st) {
+  const price = st.flyer_price ? `GH₵ ${esc(st.flyer_price)}` : 'the weekly fee';
+  return st.momo_number
+    ? `To publish, pay <b>${price}</b> by Mobile Money to <b>${esc(st.momo_number)}</b>${st.momo_name ? ` (${esc(st.momo_name)})` : ''}, using your phone number as the reference. A moderator checks the payment and the flyer, then it goes live for 7 days.`
+    : `The fee is <b>${price}</b> per week. A moderator will contact you on WhatsApp to arrange payment, then your flyer goes live for 7 days.`;
+}
+
+async function flyerForm(u, id) {
+  const st = await getSettings();
+  let f = null;
+  if (id) {
+    const { data } = await db.from('flyers').select('*').eq('id', id).maybeSingle();
+    f = data;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
+  shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
+    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${payNote(st)}</div>
+    ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
+    <form class="form" id="fl" style="max-width:760px">
+      <fieldset><legend>The programme</legend>
+        <div class="field"><label for="fl-title">Name of the programme</label><input type="text" id="fl-title" required maxlength="90" value="${esc(f?.title || '')}" placeholder="e.g. Harvest Thanksgiving Service"></div>
+        <div class="form-grid two">
+          <div class="field"><label for="fl-date">Date</label><input type="date" id="fl-date" required min="${today}" value="${esc(f?.event_date || '')}"></div>
+          <div class="field"><label for="fl-time">Time (optional)</label><input type="text" id="fl-time" maxlength="40" value="${esc(f?.event_time || '')}" placeholder="e.g. 9:00 am"></div>
+        </div>
+        <div class="field"><label for="fl-desc">Short description (optional)</label><textarea id="fl-desc" rows="3" maxlength="400">${esc(f?.description || '')}</textarea></div>
+      </fieldset>
+      <fieldset><legend>Where it will be held</legend>
+        <div class="form-grid two">
+          <div class="field"><label for="fl-town">Town</label><select id="fl-town" required>${townOptions(f?.town_id ?? REF.townBySlug['ejisu-besease']?.id, 'id')}</select></div>
+          <div class="field"><label for="fl-venue">Venue name</label><input type="text" id="fl-venue" required maxlength="80" value="${esc(f?.venue_name || '')}" placeholder="e.g. Royal Gardens Event Centre"></div>
+        </div>
+        <div class="field"><label for="fl-land">Directions / landmark</label><input type="text" id="fl-land" required maxlength="160" value="${esc(f?.landmark || '')}" placeholder="e.g. Behind the Methodist school, first left after the filling station"></div>
+        <div class="field"><label for="fl-map">Google Maps link (optional)</label><input type="text" id="fl-map" value="${esc(f?.map_link || '')}" placeholder="Open Google Maps, find the venue, tap Share, copy link"><span class="hint">Without a link, the "Get directions" button searches Google Maps for the venue name and town.</span></div>
+      </fieldset>
+      <fieldset><legend>Flyer and contact</legend>
+        <div class="field"><label for="fl-phone">Contact phone (WhatsApp)</label><input type="tel" id="fl-phone" required placeholder="024 123 4567" value="${esc(localPhone(f?.contact_phone || u.phone))}"></div>
+        <div class="field"><label for="fl-img">Flyer image</label><input type="file" id="fl-img" accept="image/*" ${f?.image_path ? '' : 'required'}>
+          ${f?.image_path ? `<img src="${esc(photoUrl(f.image_path))}" alt="" style="max-width:180px;border-radius:10px;margin-top:8px">` : ''}
+          <span class="hint">A photo or design of your flyer. It is made smaller automatically to save data.</span></div>
+      </fieldset>
+      <button class="btn" type="submit">${f ? 'Save and send for checking' : 'Send flyer for checking'}</button>
+      <div id="fl-msg"></div>
+    </form>
+    ${(mine || []).length ? `<h2 style="margin-top:28px">My flyers</h2><div class="row-list" style="max-width:760px">${mine.map((m) => `<div class="row">
+      <div class="row-top"><div><b>${esc(m.title)}</b><br><span class="muted">${esc(m.towns?.name || '')} · event ${new Date(m.event_date + 'T12:00:00').toLocaleDateString('en-GB')}</span></div>${statusBadge(m.status === 'approved' ? 'live' : m.status)}</div>
+      ${m.status === 'approved' && m.ends_on ? `<span class="muted">Showing until ${new Date(m.ends_on + 'T12:00:00').toLocaleDateString('en-GB')}</span>` : ''}
+      ${m.status === 'rejected' && m.reject_reason ? `<div class="notice error">${esc(m.reject_reason)}</div>` : ''}
+      <div class="row-actions"><a class="btn btn-ghost" href="#/f/${m.id}">View</a>${m.status !== 'approved' ? `<a class="btn btn-ghost" href="#/me/flyer/${m.id}">Edit</a>` : ''}</div></div>`).join('')}</div>` : ''}`);
+
+  document.getElementById('fl').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('fl-msg');
+    const phone = toGhanaPhone(document.getElementById('fl-phone').value);
+    if (!phone) return (msg.innerHTML = '<div class="notice error">Please enter a valid Ghana phone number.</div>');
+    const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
+    try {
+      let image_path = f?.image_path || null;
+      const file = document.getElementById('fl-img').files[0];
+      if (file) {
+        msg.innerHTML = '<div class="notice">Uploading the flyer…</div>';
+        const blob = await shrink(file, 1600, 0.78);
+        image_path = `${u.id}/flyers/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
+        const up = await db.storage.from('listing-photos').upload(image_path, blob, { contentType: 'image/jpeg' });
+        if (up.error) throw up.error;
+      }
+      const row = {
+        town_id: Number(document.getElementById('fl-town').value), title: document.getElementById('fl-title').value.trim(),
+        event_date: document.getElementById('fl-date').value, event_time: document.getElementById('fl-time').value.trim() || null,
+        venue_name: document.getElementById('fl-venue').value.trim(), landmark: document.getElementById('fl-land').value.trim(),
+        map_link: document.getElementById('fl-map').value.trim() || null, description: document.getElementById('fl-desc').value.trim() || null,
+        contact_phone: phone, image_path
+      };
+      const { error } = f ? await db.from('flyers').update(row).eq('id', f.id) : await db.from('flyers').insert({ ...row, owner_id: u.id });
+      if (error) throw error;
+      toast('Flyer sent. A moderator will check it soon.');
+      if (location.hash === '#/me/flyer') flyerForm(u); else go('/me/flyer');
+    } catch (err) {
+      msg.innerHTML = `<div class="notice error">Could not send: ${esc(err.message)}</div>`;
+    } finally { btn.disabled = false; }
+  });
+}
+
+async function flyerQueue(container, u) {
+  const [{ data }, st] = await Promise.all([
+    db.from('flyers').select('id,title,event_date,event_time,venue_name,landmark,contact_phone,image_path,created_at,towns(name),profiles!flyers_owner_id_fkey(full_name,email)').eq('status', 'pending').order('created_at'),
+    getSettings()
+  ]);
+  if (!(data || []).length) { container.innerHTML = '<h2 style="margin-top:26px">Flyers waiting</h2><div class="empty"><p class="muted" style="margin:0">No flyers waiting.</p></div>'; return; }
+  container.innerHTML = `<h2 style="margin-top:26px">Flyers waiting</h2><p class="muted">Check the flyer is a real, decent programme and the payment of GH₵ ${esc(st.flyer_price || '')} has been received. Approving starts its 7 days today.</p>
+    <div class="row-list">${data.map((f) => `<div class="row" data-frow="${f.id}">
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${f.image_path ? `<a href="${esc(photoUrl(f.image_path))}" target="_blank" rel="noopener"><img src="${esc(photoUrl(f.image_path))}" alt="" style="width:110px;border-radius:10px"></a>` : ''}
+        <div style="flex:1;min-width:200px"><b>${esc(f.title)}</b><br><span class="muted">${new Date(f.event_date + 'T12:00:00').toLocaleDateString('en-GB')}${f.event_time ? ' · ' + esc(f.event_time) : ''} · ${esc(f.venue_name)}, ${esc(f.towns?.name)}</span><br>
+        <span class="muted" style="font-size:.88rem">${esc(f.landmark)}<br>By ${esc(f.profiles?.full_name || f.profiles?.email || '')} · <a href="https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}" target="_blank" rel="noopener">${esc(localPhone(f.contact_phone))}</a></span></div>
+      </div>
+      <form class="filters" data-fapprove="${f.id}"><input type="number" min="0" step="1" required value="${esc(st.flyer_price || '')}" aria-label="Amount paid" style="max-width:110px"><input type="text" required placeholder="MoMo / receipt reference"><button class="btn btn-small" type="submit">Approve (7 days)</button></form>
+      <form class="filters" data-freject="${f.id}"><input type="text" required placeholder="Reason, e.g. flyer is not readable"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>
+    </div>`).join('')}</div>`;
+  container.querySelectorAll('[data-fapprove]').forEach((fm) => fm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const [amt, ref] = fm.querySelectorAll('input');
+    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: Number(amt.value), p_ref: ref.value.trim() });
+    if (error) return fail(error, 'Approving the flyer');
+    toast('Flyer is live for 7 days.'); container.querySelector(`[data-frow="${fm.dataset.fapprove}"]`)?.remove();
+  }));
+  container.querySelectorAll('[data-freject]').forEach((fm) => fm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { error } = await db.rpc('reject_flyer', { p_id: fm.dataset.freject, p_reason: fm.querySelector('input').value.trim() });
+    if (error) return fail(error, 'Sending back');
+    toast('Sent back with your reason.'); container.querySelector(`[data-frow="${fm.dataset.freject}"]`)?.remove();
+  }));
+}
+
 /* ---------- field agent ---------- */
 async function agentHome(u) {
   shell(u, 'agent', 'My towns', '<div class="skeleton"></div>');
@@ -530,7 +653,7 @@ async function reviewQueue(u) {
     .select('id,slug,business_name,description,phone,whatsapp,landmark,created_at,registered_by,consent_given,towns(name),listing_photos(path,sort),listing_categories(categories(name)),profiles!listings_owner_id_fkey(full_name,email)')
     .eq('status', 'pending').order('created_at');
   if (error) return fail(error, 'Loading the queue');
-  document.getElementById('dash').innerHTML = `<p class="muted">Check each listing looks real: sensible name, photos of real work, a working phone number. Oldest first.</p>
+  document.getElementById('dash').innerHTML = `<h2>Listings waiting</h2><p class="muted">Check each listing looks real: sensible name, photos of real work, a working phone number. Oldest first.</p>
     <div class="row-list">${data.length ? data.map((l) => {
       const ph = (l.listing_photos || []).sort((a, b) => a.sort - b.sort);
       return `<div class="row" data-row="${l.id}">
@@ -546,7 +669,8 @@ async function reviewQueue(u) {
         <a class="btn btn-ghost" href="#/l/${esc(l.slug)}">Preview</a>
       </div>
       <form class="filters" data-reject="${l.id}"><input type="text" required placeholder="Reason, e.g. please add photos of your work"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>
-    </div>`; }).join('') : '<div class="empty"><p class="muted" style="margin:0">Nothing waiting for review.</p></div>'}</div>`;
+    </div>`; }).join('') : '<div class="empty"><p class="muted" style="margin:0">No listings waiting for review.</p></div>'}</div><div id="flyer-queue"></div>`;
+  flyerQueue(document.getElementById('flyer-queue'), u);
   document.querySelectorAll('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
     b.disabled = true;
     const { data: note, error } = await db.rpc('approve_listing', { p_id: b.dataset.approve });
@@ -727,7 +851,17 @@ async function featuredAdmin(u) {
     db.from('featured_slots').select('id,months,amount,is_free,starts_on,ends_on,payment_ref,category_id,town_id,position,listings(business_name,slug)').gte('ends_on', today).order('ends_on'),
     db.from('featured_prices').select('tier,months,amount')
   ]);
+  const st = await getSettings();
   document.getElementById('dash').innerHTML = `
+    <form class="form panel" id="st-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Payment and donation settings</h3>
+      <div class="form-grid two">
+        <div class="field"><label for="st-price">Flyer price per week (GH₵)</label><input type="number" id="st-price" min="0" value="${esc(st.flyer_price || '')}"></div>
+        <div class="field"><label for="st-momo">MoMo number for flyer payments</label><input type="tel" id="st-momo" value="${esc(st.momo_number || '')}" placeholder="024 123 4567"></div>
+        <div class="field"><label for="st-name">MoMo account name</label><input type="text" id="st-name" value="${esc(st.momo_name || '')}"></div>
+        <div class="field"><label for="st-dnum">MoMo number for donations</label><input type="tel" id="st-dnum" value="${esc(st.donate_number || '')}" placeholder="024 123 4567"></div>
+        <div class="field"><label for="st-dname">Donation account name</label><input type="text" id="st-dname" value="${esc(st.donate_name || '')}" placeholder="e.g. MEYE CATHOLIC ASOREBA"></div>
+      </div><span class="hint">Shown on the site. Leave a MoMo number empty to hide it (people are then asked to get in touch).</span>
+      <button class="btn btn-small" type="submit">Save settings</button></form>
     <form class="form panel" id="fe-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Record a payment for a Top spot or Featured place</h3>
       <div class="field"><label for="fe-q">Listing</label><input type="search" id="fe-q" placeholder="Type the business name"><select id="fe-l" required><option value="">Search above…</option></select></div>
       <div class="form-grid two">
@@ -744,6 +878,14 @@ async function featuredAdmin(u) {
       ${(slots || []).map((s) => `<tr><td><a href="#/l/${esc(s.listings?.slug)}">${esc(s.listings?.business_name)}</a><br><span class="badge ${s.position === 'top' ? 'badge-top' : 'badge-featured'}">${s.position === 'top' ? '★ Top spot' : 'Featured'}</span></td><td>${esc(REF.catById[s.category_id]?.name)}, ${esc(REF.townById[s.town_id]?.name)}</td>
         <td>${new Date(s.ends_on).toLocaleDateString('en-GB')}</td><td>${s.is_free ? 'Free (founding)' : cedi(s.amount)}${s.payment_ref ? `<br><span class="muted">${esc(s.payment_ref)}</span>` : ''}</td>
         <td><button class="linkish" data-end="${s.id}">End now</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">None yet.</td></tr>'}</tbody></table>`;
+  document.getElementById('st-f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rows = [['flyer_price', 'st-price'], ['momo_number', 'st-momo'], ['momo_name', 'st-name'], ['donate_number', 'st-dnum'], ['donate_name', 'st-dname']]
+      .map(([key, el]) => ({ key, value: document.getElementById(el).value.trim() }));
+    const { error } = await db.from('app_settings').upsert(rows);
+    if (error) return fail(error, 'Saving settings');
+    toast('Settings saved.');
+  });
   const priceFor = () => {
     const tier = document.getElementById('fe-p').value === 'top' ? 'premium' : 'standard';
     const p = (prices || []).find((x) => x.tier === tier && x.months === Number(document.getElementById('fe-m').value));

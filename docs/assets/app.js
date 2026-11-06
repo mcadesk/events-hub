@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=18';
-import { SAMPLE_LISTINGS } from './sample.js?v=18';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=19';
+import { SAMPLE_LISTINGS } from './sample.js?v=19';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,15 +36,17 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=18');
+      const dash = await import('./dash.js?v=19');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
     if (parts[0] === 't' && parts[1] && parts[2]) return results(parts[1], parts[2], params);
     if (parts[0] === 'l' && parts[1]) return listingPage(parts[1]);
+    if (parts[0] === 'f' && parts[1]) return flyerPage(parts[1]);
     if (parts[0] === 'finance') return financePage();
     if (parts[0] === 'permits') return permitsPage();
     if (parts[0] === 'about') return aboutPage();
+    if (parts[0] === 'donate') return donatePage();
     if (parts[0] === 'list') return listPage();
     return notFound();
   } catch (e) {
@@ -74,6 +76,8 @@ function home() {
     </form>
   </div></section>
 
+  <section class="section" style="padding-bottom:0"><div class="wrap" id="flyer-sec"></div></section>
+
   <section class="section"><div class="wrap">
     <div class="section-head"><h2>Browse by category</h2><a href="#/t/${esc(town)}" id="town-link">See all in your town</a></div>
     <div class="cat-grid">${REF.top.map((c) => `
@@ -92,6 +96,10 @@ function home() {
     </div>
   </div></section>
 
+  <section class="section" style="padding-bottom:0"><div class="wrap">
+    <div class="donate-band"><div><b>NHYIAMU is free for everyone.</b> If it helps you, please consider donating towards the projects of MEYE CATHOLIC ASOREBA.</div><a class="btn btn-small btn-gold" href="#/donate">Donate</a></div>
+  </div></section>
+
   <section class="section"><div class="wrap">
     <div class="cta-band">
       <div><h3>Do you supply events?</h3><span class="muted">Canopies, food, decor, sewing, sound, transport — list your business free. The first 10 in each town get 3 months featured free.</span></div>
@@ -100,7 +108,10 @@ function home() {
   </div></section>`;
 
   const townSel = document.getElementById('f-town');
+  const loadFlyers = () => { const t = REF.townBySlug[townSel.value]; if (t) flyerSection(t, document.getElementById('flyer-sec')).catch(() => {}); };
+  loadFlyers();
   townSel.addEventListener('change', () => {
+    loadFlyers();
     store.set('eh-town', townSel.value);
     document.getElementById('town-link').href = `#/t/${townSel.value}`;
     document.querySelectorAll('[data-cat]').forEach((a) => { a.href = `#/t/${townSel.value}/${a.dataset.cat}`; });
@@ -122,10 +133,13 @@ async function townPage(townSlug) {
     <h1>Event suppliers in ${esc(town.name)}</h1>
     <p class="muted">${esc(town.districts.name)} · Suppliers based here and those who travel to ${esc(town.name)}.</p>
     <div class="field" style="max-width:320px;margin:12px 0 18px"><label class="muted" for="t-town">Change town</label><select id="t-town">${townOptions(town.slug)}</select></div>
+    <div id="flyer-sec" style="margin-bottom:22px"></div>
+    <h2>Suppliers by category</h2>
     <div class="cat-grid" id="t-cats">${REF.top.map(() => '<div class="skeleton"></div>').join('')}</div>
     <div class="section"><div class="cta-band"><div><h3>Planning an event here?</h3><span class="muted">Check which permits you need from the police, assembly and fire service.</span></div><a class="btn btn-ghost" href="#/permits">Permits guide</a></div></div>
   </div>`;
   document.getElementById('t-town').addEventListener('change', (e) => go(`/t/${e.target.value}`));
+  flyerSection(town, document.getElementById('flyer-sec')).catch(() => {});
 
   let counts = {};
   if (isDemo()) {
@@ -467,6 +481,7 @@ function aboutPage() {
     <h2>Where the money goes</h2>
     <p>Money left after running NHYIAMU supports the projects and foundation programmes of MEYE CATHOLIC ASOREBA.</p>
     <p>Full details of every project and programme will be on the MEYE CATHOLIC ASOREBA website, coming soon.</p>
+    <div class="cta-band" style="margin-top:14px"><div><b>NHYIAMU is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
   </div>`;
 }
@@ -498,6 +513,75 @@ function listPage() {
 
 function notFound(msg = 'This page could not be found.') {
   app.innerHTML = `<div class="wrap section"><div class="empty"><h3>Not found</h3><p class="muted">${esc(msg)}</p><a class="btn" href="#/">Go to home page</a></div></div>`;
+}
+
+
+/* ---------- event flyers ---------- */
+let SETTINGS = null;
+async function settings() {
+  if (SETTINGS) return SETTINGS;
+  const { data } = await db.from('app_settings').select('key,value');
+  SETTINGS = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
+  return SETTINGS;
+}
+const niceDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+async function flyerSection(town, el) {
+  const [{ data }, st] = await Promise.all([db.rpc('town_flyers', { p_town: town.id }), settings()]);
+  const list = data || [];
+  el.innerHTML = `<div class="section-head"><h2>Happening near ${esc(town.name)}</h2><a href="#/me/flyer">Post a flyer</a></div>
+    ${list.length ? `<div class="flyers">${list.map((f) => `<a class="flyer" href="#/f/${f.id}">
+        <div class="flyer-img">${f.image_path ? `<img src="${esc(photoUrl(f.image_path))}" alt="" loading="lazy">` : placeholder(f.title, hash(f.id))}</div>
+        <div class="flyer-body"><b>${esc(f.title)}</b><span class="muted">${niceDate(f.event_date)}${f.event_time ? ' · ' + esc(f.event_time) : ''}</span><span class="muted">${esc(f.venue_name)}, ${esc(f.town_name)}</span></div>
+      </a>`).join('')}</div>`
+    : `<div class="cta-band"><div><b>Hosting a programme?</b><br><span class="muted">Post your flyer with directions for one week, seen by people in ${esc(town.name)} and nearby towns${st.flyer_price ? ` — GH₵ ${esc(st.flyer_price)} a week` : ''}.</span></div><a class="btn btn-gold" href="#/me/flyer">Post a flyer</a></div>`}`;
+}
+
+async function flyerPage(id) {
+  const { data: f } = await db.from('flyers').select('*, towns(name,slug,districts(name))').eq('id', id).maybeSingle();
+  if (!f) return notFound('This flyer has ended or could not be found.');
+  document.title = `${f.title} — NHYIAMU`;
+  const mapUrl = f.map_link && /^https?:\/\//.test(f.map_link) ? f.map_link
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${f.venue_name}, ${f.towns.name}, Ghana`)}`;
+  const wa = `https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello, I saw your flyer "${f.title}" on NHYIAMU.`)}`;
+  app.innerHTML = `<div class="wrap section">
+    <div class="crumbs" style="margin-top:0"><a href="#/">Home</a> › <a href="#/t/${esc(f.towns.slug)}">${esc(f.towns.name)}</a> › Event</div>
+    ${f.status !== 'approved' ? `<div class="notice" style="margin-bottom:12px">This flyer is <b>${esc(f.status)}</b> and only you and moderators can see it.${f.reject_reason ? ' Reason: ' + esc(f.reject_reason) : ''}</div>` : ''}
+    <div class="detail">
+      <div>${f.image_path ? `<img class="flyer-full" src="${esc(photoUrl(f.image_path))}" alt="Flyer for ${esc(f.title)}">` : ''}</div>
+      <aside class="panel contact-panel">
+        <h1 style="font-size:1.6rem;margin:0">${esc(f.title)}</h1>
+        <dl class="kv">
+          <dt>When</dt><dd><b>${niceDate(f.event_date)}</b>${f.event_time ? ', ' + esc(f.event_time) : ''}</dd>
+          <dt>Where</dt><dd>${esc(f.venue_name)}<br><span class="muted">${esc(f.landmark)}, ${esc(f.towns.name)}</span></dd>
+        </dl>
+        ${f.description ? `<p style="margin:0;white-space:pre-line">${esc(f.description)}</p>` : ''}
+        <a class="btn btn-block" href="${esc(mapUrl)}" target="_blank" rel="noopener">📍 Get directions</a>
+        <a class="btn btn-wa btn-block" href="${esc(wa)}" target="_blank" rel="noopener">Ask on WhatsApp</a>
+        <a class="btn btn-ghost btn-block" href="tel:${esc(f.contact_phone)}">Call ${esc(f.contact_phone)}</a>
+        <button class="btn btn-ghost btn-block" id="f-share" type="button">Share this event</button>
+      </aside>
+    </div></div>`;
+  document.getElementById('f-share').addEventListener('click', async (e) => {
+    try { if (navigator.share) await navigator.share({ title: f.title, url: location.href }); else { await navigator.clipboard.writeText(location.href); e.target.textContent = 'Link copied ✓'; } } catch {}
+  });
+}
+
+
+async function donatePage() {
+  document.title = 'Support MEYE CATHOLIC ASOREBA — NHYIAMU';
+  const st = await settings();
+  app.innerHTML = `<div class="wrap section prose">
+    ${banner('about', 'Support our projects')}
+    <p><b>NHYIAMU is free</b> for everyone looking for event suppliers, and basic listings are free for every supplier.</p>
+    <p>If NHYIAMU has helped you, or you believe in what we do, you are warmly encouraged to donate towards the <b>projects of MEYE CATHOLIC ASOREBA</b>. Every cedi helps.</p>
+    ${st.donate_number ? `<div class="panel donate-box">
+        <h3 style="margin:0">Donate by Mobile Money</h3>
+        <p style="margin:6px 0 0;font-size:1.3rem"><b>${esc(st.donate_number)}</b></p>
+        ${st.donate_name ? `<p class="muted" style="margin:2px 0 0">Name: ${esc(st.donate_name)}</p>` : ''}
+        <p class="muted" style="margin:8px 0 0;font-size:.9rem">Use "Donation" as the reference. Thank you!</p></div>`
+      : `<div class="notice">Donation details will be shared here very soon.</div>`}
+    <p class="muted">Full details of all MEYE CATHOLIC ASOREBA projects and programmes will be on its website, coming soon.</p>
+  </div>`;
 }
 
 /* ---------- sample data for preview ---------- */
