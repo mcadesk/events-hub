@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=23';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=24';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -280,6 +280,7 @@ const EXTRA = {
   venues: [['seated_capacity', 'Seated capacity', 'number'], ['indoor_outdoor', 'Indoor or outdoor', ['Indoor', 'Outdoor', 'Both']], ['parking', 'Parking', 'bool'], ['generator', 'Backup generator', 'bool'], ['air_conditioning', 'Air conditioning', 'bool'], ['washrooms', 'Washrooms', 'bool']],
   rentals: [['items', 'What you rent out, with rough quantities and prices', 'textarea', 'e.g. 300 chairs at GH₵ 2 each, 10 canopies at GH₵ 150']],
   'food-drinks': [['cuisine', 'Type of food', ['Local', 'Continental', 'Local and continental']], ['minimum_guests', 'Minimum number of guests', 'number'], ['drinks_supplied', 'Drinks supplied', 'bool']],
+  market: [['market_name', 'Market name', 'text', 'e.g. Ejisu market, Kejetia'], ['stall_location', 'Where your stall is', 'text', 'e.g. Tomato section, near the main gate'], ['sells', 'What you sell', 'textarea', 'e.g. Fresh tomatoes, pepper, onions, garden eggs'], ['market_days', 'Days you are at the market', 'text', 'e.g. Every day except Sunday'], ['delivery', 'Can deliver to customers', 'bool'], ['bulk_orders', 'Takes big orders for events', 'bool']],
   clothing: [['styles', 'Styles you make or sell', 'text', 'e.g. Kente, kaba and slit, suits'], ['group_orders', 'Group / uniform orders', 'bool'], ['turnaround_days', 'Usual turnaround (days)', 'number']],
   accommodation: [['rooms', 'Number of rooms', 'number'], ['conference_hall', 'Conference hall', 'bool']],
   transport: [['vehicle_types', 'Vehicle types', 'text', 'e.g. Sprinter, Coaster, saloon cars'], ['seats', 'Seats per vehicle', 'text']],

@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=23';
-import { SAMPLE_LISTINGS } from './sample.js?v=23';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=24';
+import { SAMPLE_LISTINGS } from './sample.js?v=24';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=23');
+      const dash = await import('./dash.js?v=24');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -66,7 +66,7 @@ function home() {
   app.innerHTML = `
   <section class="hero" style="--hero-img:url('${catPhoto('hero', 1400, 800)}')"><div class="wrap">
     <h1>Everything for your event, in one place</h1>
-    <p>Find venues, canopies, caterers, decorators, tailors, photographers and more near you — then talk to them directly on WhatsApp.</p>
+    <p>Find venues, canopies, caterers, market sellers, decorators, tailors, photographers and more near you — then talk to them directly on WhatsApp.</p>
     <form class="finder" id="finder">
       <div class="finder-row">
         <div class="field"><label for="f-town">Town</label><select id="f-town">${townOptions(town)}</select></div>
@@ -490,7 +490,7 @@ function listPage() {
   document.title = 'List your business free — NHYIAMU';
   app.innerHTML = `<div class="wrap section prose">
     ${banner('list', 'List your business free')}
-    <p>If you supply anything for events — venues, canopies and chairs, food and drinks, decor, cloth and sewing, makeup, sound, photos, transport and more — NHYIAMU helps people near you find you and contact you on WhatsApp.</p>
+    <p>If you supply anything for events — venues, canopies and chairs, food and drinks, foodstuffs from the market, decor, cloth and sewing, makeup, sound, photos, transport and more — NHYIAMU helps people near you find you and contact you on WhatsApp.</p>
     <ul>
       <li><b>Free forever</b> for a basic listing with photos, prices and your WhatsApp.</li>
       <li><b>First 10 suppliers in each town</b> get 3 months featured free and a Founding supplier badge.</li>
