@@ -5,5 +5,7 @@ window.EVENTS_HUB = {
   supabaseKey: 'sb_publishable_I5ItyZLOxGADetUjVk8Omw_klXzRY3k',
   photoHost: 'https://nhyiamu-img.mcadesk.org',
   uploadApi: 'https://nhyiamu-api.mcadesk.org',
+  // Paystack PUBLIC key (safe to publish). The secret key is only in Supabase Vault.
+  paystackKey: 'pk_test_f44589872cd95f1736672a1ea43e167f9c1919ed',
   defaultTown: 'ejisu-besease'
 };

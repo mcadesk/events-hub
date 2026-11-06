@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=34';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=35';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -34,6 +34,7 @@ export async function route(parts, params) {
     profile: () => profile(u),
     flyer: () => flyerForm(u, parts[2]),
     join: () => joinForm(u),
+    promote: () => promotePage(u, parts[2]),
     apps: () => need(u, ['admin', 'coordinator']) && applications(u, params)
   };
   return (routes[sub] || routes.home)();
@@ -200,6 +201,7 @@ async function resetPassword() {
 /* ---------- supplier home ---------- */
 async function home(u) {
   shell(u, 'home', 'My account', '<div class="skeleton"></div>');
+  recheckMyPayments(u).catch(() => {});
   const { data: listings, error } = await db.from('listings')
     .select('id,slug,business_name,status,reject_reason,verified,founding,last_confirmed_at,updated_at,pending_contact,towns(name),listing_photos(path,sort)')
     .eq('owner_id', u.id).order('updated_at', { ascending: false });
@@ -248,6 +250,7 @@ async function home(u) {
           <a class="btn btn-ghost" href="#/l/${esc(l.slug)}">View</a>
           ${['draft', 'rejected'].includes(l.status) ? `<button class="btn" data-submit="${l.id}">Submit for review</button>` : ''}
           ${l.status === 'live' && stale(l) ? `<button class="btn btn-gold" data-confirm="${l.id}">Details are correct</button>` : ''}
+          ${l.status === 'live' && CFG.paystackKey ? `<a class="btn btn-ghost" href="#/me/promote/${l.id}">★ Get a Top spot or Featured place</a>` : ''}
         </div></div>`; }).join('')}</div>` : ''}
     ${(reviews || []).length ? `<h2 style="margin-top:24px">Reviews of my business</h2><div class="row-list">${reviews.map((r) => `<div class="row">
       <div><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span> <span class="muted">· ${esc(listings.find((l) => l.id === r.listing_id)?.business_name || '')}${r.event_type ? ' · ' + esc(r.event_type) : ''}</span></div>
@@ -540,6 +543,7 @@ async function getSettings() {
 }
 function payNote(st) {
   const price = st.flyer_price ? `GH₵ ${esc(st.flyer_price)}` : 'the weekly fee';
+  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week. After you send the flyer, pay online here with MoMo or card. A moderator checks the flyer, then it goes live for 7 days. NHYIAMU staff never collect cash for flyers.`;
   return st.momo_number
     ? `To publish, pay <b>${price}</b> by Mobile Money to <b>${esc(st.momo_number)}</b>${st.momo_name ? ` (${esc(st.momo_name)})` : ''}, using your phone number as the reference. A moderator checks the payment and the flyer, then it goes live for 7 days.`
     : `The fee is <b>${price}</b> per week. A moderator will contact you on WhatsApp to arrange payment, then your flyer goes live for 7 days.`;
@@ -553,7 +557,8 @@ async function flyerForm(u, id) {
     f = data;
   }
   const today = new Date().toISOString().slice(0, 10);
-  const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
+  const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,payment_ref,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
+  const needsPay = (m) => CFG.paystackKey && !paidPlan && m.status !== 'approved' && !m.payment_ref;
   shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
     <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place, or you are a donor of GH₵ ' + esc(st.donor_flyer_min || '100') + '+ this year. Thank you! A moderator just checks the flyer, then it goes live for 7 days.' : payNote(st) + ` <a href="#/donate">Donors of GH₵ ${esc(st.donor_flyer_min || '100')} or more</a> post flyers free for a year.`}</div>
     ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
@@ -587,7 +592,9 @@ async function flyerForm(u, id) {
       <div class="row-top"><div><b>${esc(m.title)}</b><br><span class="muted">${esc(m.towns?.name || '')} · event ${new Date(m.event_date + 'T12:00:00').toLocaleDateString('en-GB')}</span></div>${statusBadge(m.status === 'approved' ? 'live' : m.status)}</div>
       ${m.status === 'approved' && m.ends_on ? `<span class="muted">Showing until ${new Date(m.ends_on + 'T12:00:00').toLocaleDateString('en-GB')}</span>` : ''}
       ${m.status === 'rejected' && m.reject_reason ? `<div class="notice error">${esc(m.reject_reason)}</div>` : ''}
-      <div class="row-actions"><a class="btn btn-ghost" href="#/f/${m.id}">View</a>${m.status !== 'approved' ? `<a class="btn btn-ghost" href="#/me/flyer/${m.id}">Edit</a>` : ''}</div></div>`).join('')}</div>` : ''}`);
+      ${needsPay(m) ? '<span class="muted">Not paid yet — pay to send it for checking.</span>' : m.status === 'pending' && m.payment_ref ? '<span class="muted">Paid ✓ — waiting for a moderator.</span>' : ''}
+      <div class="row-actions">${needsPay(m) ? `<button class="btn btn-gold" data-payfly="${m.id}">Pay ${esc(st.flyer_price ? 'GH₵ ' + st.flyer_price : '')} now</button>` : ''}<a class="btn btn-ghost" href="#/f/${m.id}">View</a>${m.status !== 'approved' ? `<a class="btn btn-ghost" href="#/me/flyer/${m.id}">Edit</a>` : ''}</div></div>`).join('')}</div>` : ''}`);
+  document.querySelectorAll('[data-payfly]').forEach((b) => b.addEventListener('click', () => payOnline({ p_kind: 'flyer', p_flyer: b.dataset.payfly }, () => flyerForm(u))));
 
   document.getElementById('fl').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -609,8 +616,13 @@ async function flyerForm(u, id) {
         map_link: document.getElementById('fl-map').value.trim() || null, description: document.getElementById('fl-desc').value.trim() || null,
         contact_phone: phone, image_path
       };
-      const { error } = f ? await db.from('flyers').update(row).eq('id', f.id) : await db.from('flyers').insert({ ...row, owner_id: u.id });
+      const { data: saved, error } = f ? await db.from('flyers').update(row).eq('id', f.id).select('id,payment_ref').single() : await db.from('flyers').insert({ ...row, owner_id: u.id }).select('id,payment_ref').single();
       if (error) throw error;
+      if (CFG.paystackKey && !paidPlan && !saved.payment_ref) {
+        toast('Flyer saved. Now pay to send it for checking.');
+        if (location.hash !== '#/me/flyer') go('/me/flyer'); else flyerForm(u);
+        return payOnline({ p_kind: 'flyer', p_flyer: saved.id }, () => flyerForm(u));
+      }
       toast('Flyer sent. A moderator will check it soon.');
       if (location.hash === '#/me/flyer') flyerForm(u); else go('/me/flyer');
     } catch (err) {
@@ -621,27 +633,31 @@ async function flyerForm(u, id) {
 
 async function flyerQueue(container, u) {
   const [{ data }, st] = await Promise.all([
-    db.from('flyers').select('id,owner_id,title,event_date,event_time,venue_name,landmark,contact_phone,image_path,created_at,towns(name),profiles!flyers_owner_id_fkey(full_name,email)').eq('status', 'pending').order('created_at'),
+    db.from('flyers').select('id,owner_id,title,event_date,event_time,venue_name,landmark,contact_phone,image_path,created_at,payment_ref,amount,towns(name),profiles!flyers_owner_id_fkey(full_name,email)').eq('status', 'pending').order('created_at'),
     getSettings()
   ]);
   if (!(data || []).length) { container.innerHTML = '<h2 style="margin-top:26px">Flyers waiting</h2><div class="empty"><p class="muted" style="margin:0">No flyers waiting.</p></div>'; return; }
   const free = {};
   await Promise.all([...new Set(data.map((f) => f.owner_id))].map(async (id) => { const { data: p } = await db.rpc('has_paid_plan', { p_user: id }); free[id] = !!p; }));
-  container.innerHTML = `<h2 style="margin-top:26px">Flyers waiting</h2><p class="muted">Check the flyer is a real, decent programme and, unless it's marked free, that the payment of GH₵ ${esc(st.flyer_price || '')} has been received. Approving starts its 7 days today.</p>
+  const isAdmin = u.role === 'admin';
+  container.innerHTML = `<h2 style="margin-top:26px">Flyers waiting</h2><p class="muted">Check the flyer is a real, decent programme. Only flyers that are <b>paid online</b> or <b>free</b> can be approved — never accept cash. Approving starts its 7 days today.</p>
     <div class="row-list">${data.map((f) => `<div class="row" data-frow="${f.id}">
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         ${f.image_path ? `<a href="${esc(photoUrl(f.image_path))}" target="_blank" rel="noopener"><img src="${esc(photoUrl(f.image_path))}" alt="" style="width:110px;border-radius:10px"></a>` : ''}
         <div style="flex:1;min-width:200px"><b>${esc(f.title)}</b><br><span class="muted">${new Date(f.event_date + 'T12:00:00').toLocaleDateString('en-GB')}${f.event_time ? ' · ' + esc(f.event_time) : ''} · ${esc(f.venue_name)}, ${esc(f.towns?.name)}</span><br>
         <span class="muted" style="font-size:.88rem">${esc(f.landmark)}<br>By ${esc(f.profiles?.full_name || f.profiles?.email || '')} · <a href="https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}" target="_blank" rel="noopener">${esc(localPhone(f.contact_phone))}</a></span></div>
       </div>
-      ${free[f.owner_id] ? '<span class="badge badge-verified" style="width:max-content">Free — has an active plan or Founding place</span>' : ''}
-      <form class="filters" data-fapprove="${f.id}"><input type="number" min="0" step="1" required value="${free[f.owner_id] ? 0 : esc(st.flyer_price || '')}" aria-label="Amount paid" style="max-width:110px"><input type="text" ${free[f.owner_id] ? 'placeholder="Not needed (free)"' : 'required placeholder="MoMo / receipt reference"'}><button class="btn btn-small" type="submit">Approve (7 days)</button></form>
+      ${f.payment_ref ? `<span class="badge badge-verified" style="width:max-content">✓ Paid online ${cedi(f.amount)} · ${esc(f.payment_ref)}</span>`
+        : free[f.owner_id] ? '<span class="badge badge-verified" style="width:max-content">Free — paid place, Founding place or donor</span>'
+        : '<span class="badge" style="width:max-content">Not paid yet — waiting for the poster to pay online</span>'}
+      ${f.payment_ref || free[f.owner_id] ? `<form class="filters" data-fapprove="${f.id}"><button class="btn btn-small" type="submit">Approve (7 days)</button></form>`
+        : isAdmin ? `<form class="filters" data-fapprove="${f.id}" data-manual="1"><input type="number" min="0" step="1" required value="${esc(st.flyer_price || '')}" aria-label="Amount paid" style="max-width:110px"><input type="text" required placeholder="Admin only: how it was paid"><button class="btn btn-small btn-ghost" type="submit">Approve with manual payment</button></form>` : ''}
       <form class="filters" data-freject="${f.id}"><input type="text" required placeholder="Reason, e.g. flyer is not readable"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>
     </div>`).join('')}</div>`;
   container.querySelectorAll('[data-fapprove]').forEach((fm) => fm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const [amt, ref] = fm.querySelectorAll('input');
-    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: Number(amt.value), p_ref: ref.value.trim() || (Number(amt.value) === 0 ? 'FREE (paid place, Founding place or GH₵ 100+ donor)' : '') });
+    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: amt ? Number(amt.value) : 0, p_ref: ref ? ref.value.trim() : '' });
     if (error) return fail(error, 'Approving the flyer');
     toast('Flyer is live for 7 days.'); container.querySelector(`[data-frow="${fm.dataset.fapprove}"]`)?.remove();
   }));
@@ -1068,7 +1084,7 @@ async function featuredAdmin(u) {
         <div class="field"><label for="st-dname">Donation account name</label><input type="text" id="st-dname" value="${esc(st.donate_name || '')}" placeholder="e.g. MEYE CATHOLIC ASOREBA"></div>
       </div><span class="hint">Shown on the site. Leave a MoMo number empty to hide it (people are then asked to get in touch).</span>
       <button class="btn btn-small" type="submit">Save settings</button></form>
-    <form class="form panel" id="fe-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Record a payment for a Top spot or Featured place</h3>
+    <form class="form panel" id="fe-f" style="max-width:620px;margin-bottom:18px"><h3 style="margin:0">Record a payment made another way (admin only)</h3><span class="hint">Suppliers normally pay online from their own account. Use this only for exceptions, never for cash handed to a helper.</span>
       <div class="field"><label for="fe-q">Listing</label><input type="search" id="fe-q" placeholder="Type the business name"><select id="fe-l" required><option value="">Search above…</option></select></div>
       <div class="form-grid two">
         <div class="field"><label for="fe-p">Position</label><select id="fe-p"><option value="top">★ Top spot (2 per category per town)</option><option value="featured" selected>Featured (3 per category per town)</option></select></div>
@@ -1079,11 +1095,21 @@ async function featuredAdmin(u) {
       </div>
       <div class="field"><label for="fe-r">MoMo / receipt reference</label><input type="text" id="fe-r" required></div>
       <button class="btn" type="submit">Make featured</button><div id="fe-msg"></div></form>
+    <div id="pay-list"></div>
     <h2>Active paid places</h2>
     <table class="table"><thead><tr><th>Listing</th><th>Where</th><th>Until</th><th>Paid</th><th></th></tr></thead><tbody>
       ${(slots || []).map((s) => `<tr><td><a href="#/l/${esc(s.listings?.slug)}">${esc(s.listings?.business_name)}</a><br><span class="badge ${s.position === 'top' ? 'badge-top' : 'badge-featured'}">${s.position === 'top' ? '★ Top spot' : 'Featured'}</span></td><td>${esc(REF.catById[s.category_id]?.name)}, ${esc(REF.townById[s.town_id]?.name)}</td>
         <td>${new Date(s.ends_on).toLocaleDateString('en-GB')}</td><td>${s.is_free ? 'Free (founding)' : cedi(s.amount)}${s.payment_ref ? `<br><span class="muted">${esc(s.payment_ref)}</span>` : ''}</td>
         <td><button class="linkish" data-end="${s.id}">End now</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">None yet.</td></tr>'}</tbody></table>`;
+  db.from('payments').select('reference,kind,amount,status,channel,note,created_at,paid_at,profiles(full_name,email)').neq('status', 'pending').order('created_at', { ascending: false }).limit(50).then(({ data: pays }) => {
+    const box = document.getElementById('pay-list'); if (!box) return;
+    const attention = (pays || []).filter((p) => p.status === 'needs_attention');
+    box.innerHTML = `<h2>Online payments</h2>
+      ${attention.length ? `<div class="notice error" style="margin-bottom:10px"><b>${attention.length} payment${attention.length > 1 ? 's need' : ' needs'} your attention</b> — paid but could not be switched on (e.g. wrong amount, or places filled up). Contact the client: offer the next free place or refund it from your Paystack dashboard.</div>` : ''}
+      <table class="table"><thead><tr><th>When</th><th>Who</th><th>For</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+      ${(pays || []).map((p) => `<tr><td>${new Date(p.paid_at || p.created_at).toLocaleDateString('en-GB')}</td><td>${esc(p.profiles?.full_name || p.profiles?.email || '')}</td><td>${p.kind === 'place' ? 'Top spot / Featured' : 'Flyer'}<br><span class="muted">${esc(p.reference)}</span></td><td>${cedi(p.amount)}${p.channel ? `<br><span class="muted">${esc(p.channel.replace('_', ' '))}</span>` : ''}</td><td>${esc(p.status.replace('_', ' '))}${p.note ? `<br><span class="muted">${esc(p.note)}</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No online payments yet.</td></tr>'}
+      </tbody></table>`;
+  });
   document.getElementById('st-f').addEventListener('submit', async (e) => {
     e.preventDefault();
     const rows = [['flyer_price', 'st-price'], ['momo_number', 'st-momo'], ['momo_name', 'st-name'], ['donate_number', 'st-dnum'], ['donate_name', 'st-dname']]
@@ -1198,6 +1224,105 @@ async function donationsAdmin(u) {
     const { error } = await db.from('donations').delete().eq('id', b.dataset.del);
     if (error) return fail(error, 'Removing'); donationsAdmin(u);
   }));
+}
+
+/* ---------- online payments (Paystack) ---------- */
+let paystackLoading;
+function loadPaystack() {
+  if (window.PaystackPop) return Promise.resolve();
+  paystackLoading ||= new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'https://js.paystack.co/v2/inline.js';
+    s.onload = res; s.onerror = () => { paystackLoading = null; rej(new Error('Could not open the payment window. Check your internet connection.')); };
+    document.head.appendChild(s);
+  });
+  return paystackLoading;
+}
+// Asks Paystack (through our database) whether a payment went through; MoMo can take a little while
+async function confirmPayment(reference, tries = 6) {
+  for (let i = 0; i < tries; i++) {
+    const { data, error } = await db.rpc('confirm_payment', { p_ref: reference });
+    if (error) throw error;
+    if (!/^(Payment not found|Not paid yet)/.test(data)) return data;
+    await new Promise((r) => setTimeout(r, 4000));
+  }
+  return 'We have not received the payment yet. If money left your account, open My listings in a few minutes; it is checked again automatically.';
+}
+// Starts a payment: the price is set by the database, the client pays NHYIAMU directly in the Paystack window
+async function payOnline(args, onDone) {
+  const { data, error } = await db.rpc('start_payment', args);
+  if (error) return fail(error, 'Starting the payment');
+  const p = data?.[0];
+  try { await loadPaystack(); } catch (e) { return toast(e.message, true); }
+  new window.PaystackPop().newTransaction({
+    key: CFG.paystackKey, email: p.email, amount: p.amount_pesewas, currency: 'GHS', reference: p.reference,
+    channels: ['mobile_money', 'card'],
+    onSuccess: async () => {
+      toast('Checking your payment…');
+      try { const msg = await confirmPayment(p.reference); toast(msg); } catch (e) { fail(e, 'Checking the payment'); }
+      onDone?.();
+    },
+    onCancel: () => toast('Payment cancelled. Nothing was charged.')
+  });
+}
+// Re-checks this user's recent unfinished payments (e.g. they closed the window after paying)
+async function recheckMyPayments(u) {
+  const since = new Date(Date.now() - 2 * 864e5).toISOString();
+  const { data } = await db.from('payments').select('reference').eq('user_id', u.id).eq('status', 'pending').gte('created_at', since);
+  let changed = false;
+  for (const p of data || []) {
+    const { data: msg } = await db.rpc('confirm_payment', { p_ref: p.reference });
+    if (msg && !/^(Payment not found|Not paid yet)/.test(msg)) { toast(msg); changed = true; }
+  }
+  return changed;
+}
+const NO_CASH = '<div class="notice" style="background:var(--gold-soft)"><b>Pay only on this page.</b> NHYIAMU staff and field agents never collect cash or MoMo for you. If anyone asks you to pay them, please report it.</div>';
+
+async function promotePage(u, listingId) {
+  const { data: l } = await db.from('listings').select('id,slug,business_name,status,owner_id,base_town_id,towns(name),listing_categories(categories(id,parent_id))').eq('id', listingId).maybeSingle();
+  if (!l || l.owner_id !== u.id) return shell(u, 'home', 'Promote my listing', '<div class="notice error">Listing not found.</div>');
+  if (l.status !== 'live') return shell(u, 'home', 'Promote my listing', '<div class="notice">Your listing must be approved and live before you can buy a Top spot or Featured place.</div>');
+  const tops = [...new Set((l.listing_categories || []).map((x) => x.categories?.parent_id || x.categories?.id).filter(Boolean))].map((id) => REF.catById[id]).filter(Boolean);
+  const [{ data: prices }, { data: mine }] = await Promise.all([
+    db.from('featured_prices').select('tier,months,amount'),
+    db.from('featured_slots').select('category_id,position,ends_on').eq('listing_id', l.id).gte('ends_on', new Date().toISOString().slice(0, 10))
+  ]);
+  const price = (pos, m) => (prices || []).find((p) => p.tier === (pos === 'top' ? 'premium' : 'standard') && p.months === m)?.amount;
+  shell(u, 'home', `Promote: ${l.business_name}`, `
+    <div style="max-width:760px">
+      <p class="muted">Show <b>${esc(l.business_name)}</b> above other suppliers when people search in ${esc(l.towns?.name || 'your town')}. Places rotate daily within each level, and each category has only a few.</p>
+      ${(mine || []).length ? `<div class="notice" style="margin-bottom:12px">You already have: ${mine.map((s) => `${s.position === 'top' ? '★ Top spot' : 'Featured'} in ${esc(REF.catById[s.category_id]?.name || '')} until ${new Date(s.ends_on + 'T12:00:00').toLocaleDateString('en-GB')}`).join('; ')}. Paying again for the same place adds the time on.</div>` : ''}
+      <form class="form panel" id="pr">
+        <div class="field"><label for="pr-cat">Category</label><select id="pr-cat">${tops.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Place</label>
+          <label class="check" style="white-space:normal"><input type="radio" name="pr-pos" value="top"> <span><b>★ Top spot</b> — the very top (2 per category per town) <span class="muted" id="left-top"></span></span></label>
+          <label class="check" style="white-space:normal"><input type="radio" name="pr-pos" value="featured" checked> <span><b>Featured</b> — just below (3 per category per town) <span class="muted" id="left-featured"></span></span></label>
+        </div>
+        <div class="field"><label for="pr-m">How long</label><select id="pr-m">${[1, 3, 6, 12].map((m) => `<option value="${m}">${m} month${m > 1 ? 's' : ''}</option>`).join('')}</select></div>
+        <p style="font-size:1.25rem;margin:4px 0"><b id="pr-total"></b></p>
+        <button class="btn btn-gold" type="submit" id="pr-pay">Pay with MoMo or card</button>
+        <span class="hint">Your place switches on as soon as the payment is confirmed. Paid securely through Paystack.</span>
+      </form>
+      <div style="margin-top:12px">${NO_CASH}</div>
+    </div>`);
+  const pos = () => document.querySelector('input[name=pr-pos]:checked').value;
+  const update = async () => {
+    const cat = Number(document.getElementById('pr-cat').value);
+    const m = Number(document.getElementById('pr-m').value);
+    document.getElementById('pr-total').textContent = `Total: ${cedi(price(pos(), m) || 0)}`;
+    for (const p of ['top', 'featured']) {
+      const { data: left } = await db.rpc('places_left', { p_category: cat, p_town: l.base_town_id, p_position: p });
+      const own = (mine || []).some((s) => s.category_id === cat && s.position === p);
+      document.getElementById(`left-${p}`).textContent = own ? '· you have this — pay to add time' : left > 0 ? `· ${left} left` : '· all taken right now';
+    }
+  };
+  ['pr-cat', 'pr-m'].forEach((id) => document.getElementById(id).addEventListener('change', update));
+  document.querySelectorAll('input[name=pr-pos]').forEach((r) => r.addEventListener('change', update));
+  update();
+  document.getElementById('pr').addEventListener('submit', (e) => {
+    e.preventDefault();
+    payOnline({ p_kind: 'place', p_listing: l.id, p_category: Number(document.getElementById('pr-cat').value), p_position: pos(), p_months: Number(document.getElementById('pr-m').value) },
+      () => go('/me'));
+  });
 }
 
 const ROLE_WANT = { agent: 'Field agent', moderator: 'Moderator', coordinator: 'Regional coordinator' };

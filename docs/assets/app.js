@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=34';
-import { SAMPLE_LISTINGS } from './sample.js?v=34';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=35';
+import { SAMPLE_LISTINGS } from './sample.js?v=35';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=34');
+      const dash = await import('./dash.js?v=35');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -544,6 +544,7 @@ function listPage() {
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Optional: get seen first</h2>
     <p class="muted">Listing is free. If you want to appear above other suppliers in your category and town, you can pay for a place at the top. Each category in each town has <b>2 Top spots</b> and <b>3 Featured places</b>, shared in daily rotation.</p>
+    <p class="muted">You pay online from your own account (MoMo or card) — <b>NHYIAMU staff and field agents never collect money from you</b>. If anyone asks you to pay them in cash, please report it.</p>
     <div id="prices" class="panel">Loading…</div>
   </div>`;
   db.from('featured_prices').select('tier,months,amount').order('months').then(({ data }) => {
