@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=20';
-import { SAMPLE_LISTINGS } from './sample.js?v=20';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf } from './core.js?v=21';
+import { SAMPLE_LISTINGS } from './sample.js?v=21';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=20');
+      const dash = await import('./dash.js?v=21');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -533,7 +533,7 @@ async function flyerSection(town, el) {
         <div class="flyer-img">${f.image_path ? `<img src="${esc(photoUrl(f.image_path))}" alt="" loading="lazy">` : placeholder(f.title, hash(f.id))}</div>
         <div class="flyer-body"><b>${esc(f.title)}</b><span class="muted">${niceDate(f.event_date)}${f.event_time ? ' · ' + esc(f.event_time) : ''}</span><span class="muted">${esc(f.venue_name)}, ${esc(f.town_name)}</span></div>
       </a>`).join('')}</div>`
-    : `<div class="cta-band"><div><b>Hosting a programme?</b><br><span class="muted">Post your flyer with directions for one week, seen by people in ${esc(town.name)} and nearby towns${st.flyer_price ? ` — GH₵ ${esc(st.flyer_price)} a week, free with a Top spot or Featured plan` : ''}.</span></div><a class="btn btn-gold" href="#/me/flyer">Post a flyer</a></div>`}`;
+    : `<div class="cta-band"><div><b>Hosting a programme?</b><br><span class="muted">Post your flyer with directions for one week, seen by people in ${esc(town.name)} and nearby towns${st.flyer_price ? ` — GH₵ ${esc(st.flyer_price)} a week, free with a Top spot, Featured or Founding supplier place` : ''}.</span></div><a class="btn btn-gold" href="#/me/flyer">Post a flyer</a></div>`}`;
 }
 
 async function flyerPage(id) {
