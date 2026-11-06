@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=19';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef } from './core.js?v=20';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -494,7 +494,7 @@ function payNote(st) {
 }
 
 async function flyerForm(u, id) {
-  const st = await getSettings();
+  const [st, { data: paidPlan }] = await Promise.all([getSettings(), db.rpc('has_paid_plan', { p_user: u.id })]);
   let f = null;
   if (id) {
     const { data } = await db.from('flyers').select('*').eq('id', id).maybeSingle();
@@ -503,7 +503,7 @@ async function flyerForm(u, id) {
   const today = new Date().toISOString().slice(0, 10);
   const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
   shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
-    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${payNote(st)}</div>
+    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot or Featured plan. A moderator just checks the flyer, then it goes live for 7 days.' : payNote(st)}</div>
     ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
     <form class="form" id="fl" style="max-width:760px">
       <fieldset><legend>The programme</legend>
@@ -572,24 +572,27 @@ async function flyerForm(u, id) {
 
 async function flyerQueue(container, u) {
   const [{ data }, st] = await Promise.all([
-    db.from('flyers').select('id,title,event_date,event_time,venue_name,landmark,contact_phone,image_path,created_at,towns(name),profiles!flyers_owner_id_fkey(full_name,email)').eq('status', 'pending').order('created_at'),
+    db.from('flyers').select('id,owner_id,title,event_date,event_time,venue_name,landmark,contact_phone,image_path,created_at,towns(name),profiles!flyers_owner_id_fkey(full_name,email)').eq('status', 'pending').order('created_at'),
     getSettings()
   ]);
   if (!(data || []).length) { container.innerHTML = '<h2 style="margin-top:26px">Flyers waiting</h2><div class="empty"><p class="muted" style="margin:0">No flyers waiting.</p></div>'; return; }
-  container.innerHTML = `<h2 style="margin-top:26px">Flyers waiting</h2><p class="muted">Check the flyer is a real, decent programme and the payment of GH₵ ${esc(st.flyer_price || '')} has been received. Approving starts its 7 days today.</p>
+  const free = {};
+  await Promise.all([...new Set(data.map((f) => f.owner_id))].map(async (id) => { const { data: p } = await db.rpc('has_paid_plan', { p_user: id }); free[id] = !!p; }));
+  container.innerHTML = `<h2 style="margin-top:26px">Flyers waiting</h2><p class="muted">Check the flyer is a real, decent programme and, unless it's marked free, that the payment of GH₵ ${esc(st.flyer_price || '')} has been received. Approving starts its 7 days today.</p>
     <div class="row-list">${data.map((f) => `<div class="row" data-frow="${f.id}">
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         ${f.image_path ? `<a href="${esc(photoUrl(f.image_path))}" target="_blank" rel="noopener"><img src="${esc(photoUrl(f.image_path))}" alt="" style="width:110px;border-radius:10px"></a>` : ''}
         <div style="flex:1;min-width:200px"><b>${esc(f.title)}</b><br><span class="muted">${new Date(f.event_date + 'T12:00:00').toLocaleDateString('en-GB')}${f.event_time ? ' · ' + esc(f.event_time) : ''} · ${esc(f.venue_name)}, ${esc(f.towns?.name)}</span><br>
         <span class="muted" style="font-size:.88rem">${esc(f.landmark)}<br>By ${esc(f.profiles?.full_name || f.profiles?.email || '')} · <a href="https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}" target="_blank" rel="noopener">${esc(localPhone(f.contact_phone))}</a></span></div>
       </div>
-      <form class="filters" data-fapprove="${f.id}"><input type="number" min="0" step="1" required value="${esc(st.flyer_price || '')}" aria-label="Amount paid" style="max-width:110px"><input type="text" required placeholder="MoMo / receipt reference"><button class="btn btn-small" type="submit">Approve (7 days)</button></form>
+      ${free[f.owner_id] ? '<span class="badge badge-verified" style="width:max-content">Free — has an active paid plan</span>' : ''}
+      <form class="filters" data-fapprove="${f.id}"><input type="number" min="0" step="1" required value="${free[f.owner_id] ? 0 : esc(st.flyer_price || '')}" aria-label="Amount paid" style="max-width:110px"><input type="text" ${free[f.owner_id] ? 'placeholder="Not needed (free)"' : 'required placeholder="MoMo / receipt reference"'}><button class="btn btn-small" type="submit">Approve (7 days)</button></form>
       <form class="filters" data-freject="${f.id}"><input type="text" required placeholder="Reason, e.g. flyer is not readable"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>
     </div>`).join('')}</div>`;
   container.querySelectorAll('[data-fapprove]').forEach((fm) => fm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const [amt, ref] = fm.querySelectorAll('input');
-    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: Number(amt.value), p_ref: ref.value.trim() });
+    const { error } = await db.rpc('approve_flyer', { p_id: fm.dataset.fapprove, p_amount: Number(amt.value), p_ref: ref.value.trim() || (Number(amt.value) === 0 ? 'FREE (paid plan)' : '') });
     if (error) return fail(error, 'Approving the flyer');
     toast('Flyer is live for 7 days.'); container.querySelector(`[data-frow="${fm.dataset.fapprove}"]`)?.remove();
   }));
