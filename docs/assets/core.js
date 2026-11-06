@@ -30,7 +30,7 @@ export const photoUrl = (path) => path?.startsWith('sample:') ? null : path ? `$
 export const thumbPath = (path) => path ? path.replace(/\.jpg$/, '_t.jpg') : path;
 export const thumbImg = (path, alt = '') => {
   const full = photoUrl(path); if (!full) return '';
-  return `<img src="${esc(photoUrl(thumbPath(path)))}" data-full="${esc(full)}" onerror="this.onerror=null;this.src=this.dataset.full" alt="${esc(alt)}" loading="lazy">`;
+  return `<img src="${esc(photoUrl(thumbPath(path)))}" data-full="${esc(full)}" crossorigin="anonymous" onerror="this.onerror=null;this.src=this.dataset.full" alt="${esc(alt)}" loading="lazy">`;
 };
 export const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
 
