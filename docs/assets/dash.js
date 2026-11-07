@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=38';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=39';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -557,12 +557,29 @@ async function flyerForm(u, id) {
     f = data;
   }
   const today = new Date().toISOString().slice(0, 10);
-  const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,payment_ref,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
+  const { data: mine } = await db.from('flyers').select('id,title,status,event_date,starts_on,ends_on,reject_reason,payment_ref,created_at,towns(name)').eq('owner_id', u.id).order('created_at', { ascending: false });
+  // Limit: apart from event hosts (event centres / planners), paid-place holders, donors and staff,
+  // everyone may post 3 flyers every 2 months (rolling)
+  const LIMIT = Number(st.flyer_limit_count || 3), DAYS = Number(st.flyer_limit_days || 60);
+  let limitHit = null;
+  if (!f && !paidPlan && !['admin', 'moderator'].includes(u.role)) {
+    const { data: own } = await db.from('listings').select('listing_categories(category_id)').eq('owner_id', u.id).eq('status', 'live');
+    const host = (own || []).some((l) => (l.listing_categories || []).some((lc) => {
+      const c = REF.catById[lc.category_id]; const top = c?.parent_id ? REF.catById[c.parent_id] : c;
+      return ['venues', 'planners'].includes(top?.slug);
+    }));
+    const since = Date.now() - DAYS * 864e5;
+    const recent = (mine || []).filter((m) => new Date(m.created_at).getTime() >= since).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (!host && recent.length >= LIMIT) {
+      limitHit = new Date(new Date(recent[recent.length - LIMIT].created_at).getTime() + DAYS * 864e5);
+    }
+  }
   const needsPay = (m) => CFG.paystackKey && !paidPlan && m.status !== 'approved' && !m.payment_ref;
   shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
     <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place, or you are a donor of GH₵ ' + esc(st.donor_flyer_min || '100') + '+ this year. Thank you! A moderator just checks the flyer, then it goes live for 7 days.' : payNote(st) + ` <a href="#/donate">Donors of GH₵ ${esc(st.donor_flyer_min || '100')} or more</a> post flyers free for a year.`}</div>
     ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
-    <form class="form" id="fl" style="max-width:760px">
+    ${limitHit ? `<div class="notice" style="margin-bottom:14px;max-width:760px;background:var(--gold-soft)"><b>You have posted ${LIMIT} flyers in the last ${Math.round(DAYS / 30)} months</b>, which is the limit for personal accounts. You can post your next flyer from <b>${limitHit.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</b>.<br><span class="muted">Event centres and event planners listed on NHYIAMU, suppliers with a Top spot, Featured or Founding place, and donors of GH₵ ${esc(st.donor_flyer_min || '100')}+ have no limit.</span></div>` : ''}
+    <form class="form" id="fl" style="max-width:760px"${limitHit ? ' hidden' : ''}>
       <fieldset><legend>The programme</legend>
         <div class="field"><label for="fl-title">Name of the programme</label><input type="text" id="fl-title" required maxlength="90" value="${esc(f?.title || '')}" placeholder="e.g. Harvest Thanksgiving Service"></div>
         <div class="form-grid two">
