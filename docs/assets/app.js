@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=37';
-import { SAMPLE_LISTINGS } from './sample.js?v=37';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=38';
+import { SAMPLE_LISTINGS } from './sample.js?v=38';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=37');
+      const dash = await import('./dash.js?v=38');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -68,7 +68,7 @@ function home() {
   app.innerHTML = `
   <section class="hero" style="--hero-img:url('${catPhoto('hero', 1400, 800)}')"><div class="wrap">
     <h1>Everything for your event, in one place</h1>
-    <p>Find venues, canopies, caterers, market sellers, decorators, tailors, photographers and more near you — then talk to them directly on WhatsApp.</p>
+    <p>Find venues, canopies, caterers, market sellers, decorators, tailors, photographers, delivery riders and more near you — then talk to them directly on WhatsApp.</p>
     <form class="finder" id="finder">
       <div class="finder-row">
         <div class="field"><label for="f-town">Town</label><select id="f-town">${townOptions(town)}</select></div>

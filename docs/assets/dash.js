@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=37';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=38';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -303,7 +303,7 @@ const EXTRA = {
   market: [['market_name', 'Market name', 'text', 'e.g. Ejisu market, Kejetia'], ['stall_location', 'Where your stall is', 'text', 'e.g. Tomato section, near the main gate'], ['sells', 'What you sell', 'textarea', 'e.g. Fresh tomatoes, pepper, onions, garden eggs'], ['market_days', 'Days you are at the market', 'text', 'e.g. Every day except Sunday'], ['delivery', 'Can deliver to customers', 'bool'], ['bulk_orders', 'Takes big orders for events', 'bool']],
   clothing: [['styles', 'Styles you make or sell', 'text', 'e.g. Kente, kaba and slit, suits'], ['group_orders', 'Group / uniform orders', 'bool'], ['turnaround_days', 'Usual turnaround (days)', 'number']],
   accommodation: [['rooms', 'Number of rooms', 'number'], ['conference_hall', 'Conference hall', 'bool']],
-  transport: [['vehicle_types', 'Vehicle types', 'text', 'e.g. Sprinter, Coaster, saloon cars'], ['seats', 'Seats per vehicle', 'text']],
+  transport: [['vehicle_types', 'Vehicle types', 'text', 'e.g. Sprinter, Coaster, motorbike, aboboyaa'], ['seats', 'Seats per vehicle (for passengers)', 'text'], ['delivery_areas', 'Areas you deliver to', 'text', 'e.g. Ejisu, Besease, Kumasi'], ['delivery_fee', 'Delivery fee from (GH₵)', 'text', 'e.g. 15 within Ejisu'], ['same_day', 'Same-day delivery', 'bool']],
   'photo-video': [['packages', 'Packages', 'textarea'], ['drone', 'Drone shots', 'bool'], ['live_streaming', 'Live-streaming', 'bool'], ['same_day_edits', 'Same-day edits', 'bool']],
   entertainment: [['type_of_act', 'Type of act', 'text'], ['languages', 'Languages', 'text', 'e.g. Twi, English']]
 };
