@@ -8,5 +8,7 @@ window.EVENTS_HUB = {
   // Paystack PUBLIC key (safe to publish). The secret key is only in Supabase Vault.
   paystackKey: 'pk_live_8b4bda8d0abdd4bc04eb7dcdb40cc0bf0e5e88ba',
   mcaSite: 'https://claude.ai/artifact/SLWAVsm3bgUUfsCn16GKuX',
-  defaultTown: 'ejisu-besease'
+  defaultTown: 'ejisu-besease',
+  // Turn on after Google sign-in is set up in Supabase (Authentication → Providers → Google)
+  googleSignIn: false
 };

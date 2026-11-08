@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=43';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=44';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -36,6 +36,7 @@ export async function route(parts, params) {
     join: () => joinForm(u),
     pay: () => need(u, ['admin', 'agent', 'coordinator']) && payPage(u, params),
     promote: () => promotePage(u, parts[2]),
+    quotes: () => quotesPage(u),
     apps: () => need(u, ['admin', 'coordinator']) && applications(u, params)
   };
   return (routes[sub] || routes.home)();
@@ -58,6 +59,7 @@ function shell(u, active, title, body) {
     </div>
     <nav class="tabs" aria-label="Account sections">
       ${t('home', 'My listings')}
+      ${t('quotes', 'Quotes')}
       ${t('flyer', 'Post a flyer')}
       ${t('region', 'My region', ['coordinator'])}
       ${t('agent', u.role === 'coordinator' ? 'Waiting for a visit' : 'My towns', ['agent', 'coordinator', 'admin'])}
@@ -91,6 +93,10 @@ function shell(u, active, title, body) {
     await db.auth.signOut(); clearMe(); toast('Signed out.'); go('/');
   });
   window.scrollTo(0, 0);
+  db.rpc('my_new_quotes').then(({ data }) => {
+    const a = document.querySelector('.tabs a[href="#/me/quotes"]');
+    if (a && data > 0) a.insertAdjacentHTML('beforeend', ` <span class="count-badge">${Number(data)}</span>`);
+  }, () => {});
 }
 const statusBadge = (s) => `<span class="status status-${esc(s)}">${esc(s)}</span>`;
 const fail = (error, what = 'That') => { console.error(error); toast(`${what} didn't work: ${error?.message || 'please try again'}`, true); };
@@ -135,6 +141,8 @@ function signIn(mode = 'signin') {
       <button class="btn btn-block" type="submit">${isUp ? 'Create account' : 'Sign in'}</button>
       <div id="auth-msg"></div>
     </form>
+    ${CFG.googleSignIn ? `<div class="or-line"><span>or</span></div>
+    <button class="btn btn-ghost btn-block" type="button" id="google-in"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>Continue with Google</button>` : ''}
     <p style="margin:16px 0 0">${isUp ? 'Already have an account? <button class="linkish" id="to-in">Sign in</button>'
       : 'New here? <button class="linkish" id="to-up">Create a free account</button><br><button class="linkish" id="forgot" style="margin-top:8px">Forgot your password?</button>'}</p>
   </div></div>`;
@@ -142,6 +150,11 @@ function signIn(mode = 'signin') {
   document.getElementById('to-in')?.addEventListener('click', () => signIn('signin'));
   document.getElementById('to-up')?.addEventListener('click', () => signIn('signup'));
   document.getElementById('forgot')?.addEventListener('click', forgot);
+  document.getElementById('google-in')?.addEventListener('click', async () => {
+    session.set('eh-oauth', '1');
+    const { error } = await db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: BASE } });
+    if (error) { session.set('eh-oauth', null); toast(error.message, true); }
+  });
   const msg = document.getElementById('auth-msg');
   document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -276,6 +289,48 @@ async function home(u) {
     const { error } = await db.from('reviews').update({ reply: f.querySelector('input').value.trim() || null }).eq('id', f.dataset.reply);
     if (error) return fail(error, 'Saving the reply');
     toast('Reply saved.');
+  }));
+}
+
+/* ---------- quote requests ---------- */
+const QUOTE_STATUS = { new: 'New', replied: 'Replied', booked: 'Booked', declined: 'Declined', closed: 'Closed' };
+async function quotesPage(u) {
+  shell(u, 'quotes', 'Quote requests', '<div class="skeleton"></div>');
+  const { data: qs, error } = await db.from('quote_requests')
+    .select('*, listings(id,slug,business_name,owner_id,whatsapp)').order('created_at', { ascending: false }).limit(200);
+  if (error) return fail(error, 'Loading requests');
+  const toMe = qs.filter((q) => q.listings?.owner_id === u.id);
+  const mine = qs.filter((q) => q.requester_id === u.id);
+  const day = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const when = (t) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const facts = (q) => [q.event_type, q.event_date && day(q.event_date), q.guests && `${q.guests} guests`, q.budget != null && `Budget ${cedi(q.budget)}`].filter(Boolean).map(esc).join(' · ');
+  const reply = (q) => `https://wa.me/${q.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${q.name}, this is ${q.listings.business_name}. Thank you for your request on NHYIAMU${q.event_type ? ` for your ${q.event_type}` : ''}${q.event_date ? ` on ${day(q.event_date)}` : ''}. `)}`;
+  document.getElementById('dash').innerHTML = `
+    ${toMe.length || u.role !== 'host' ? `<h2>Requests to my business</h2>
+    ${toMe.length ? `<div class="row-list">${toMe.map((q) => `<div class="row">
+      <div class="row-top"><div><b>${esc(q.name)}</b> <span class="muted">· ${esc(q.listings.business_name)} · ${when(q.created_at)}</span></div>${`<span class="status status-${esc(q.status)}">${QUOTE_STATUS[q.status]}</span>`}</div>
+      ${facts(q) ? `<div>${facts(q)}</div>` : ''}
+      <div style="white-space:pre-line">${esc(q.details)}</div>
+      <div class="row-actions">
+        <a class="btn btn-wa" href="${esc(reply(q))}" target="_blank" rel="noopener" data-replied="${q.status === 'new' ? q.id : ''}">Reply on WhatsApp</a>
+        <a class="btn btn-ghost" href="tel:${esc(q.phone)}">Call ${esc(localPhone(q.phone))}</a>
+        ${['new', 'replied'].includes(q.status) ? `<button class="btn btn-ghost" data-qs="${q.id}" data-to="booked">They booked me</button>
+        <button class="btn btn-ghost" data-qs="${q.id}" data-to="declined">Can't do it</button>` : ''}
+      </div></div>`).join('')}</div>` : '<p class="muted">No requests yet. When customers ask for a quote on your listing, they appear here.</p>'}` : ''}
+    <h2 style="margin-top:24px">Requests I sent</h2>
+    ${mine.length ? `<div class="row-list">${mine.map((q) => `<div class="row">
+      <div class="row-top"><div><a href="#/l/${esc(q.listings?.slug || '')}"><b>${esc(q.listings?.business_name || 'Supplier')}</b></a> <span class="muted">· ${when(q.created_at)}</span></div>${`<span class="status status-${esc(q.status)}">${QUOTE_STATUS[q.status]}</span>`}</div>
+      ${facts(q) ? `<div>${facts(q)}</div>` : ''}
+      <div class="muted" style="white-space:pre-line">${esc(q.details)}</div>
+      ${['new', 'replied'].includes(q.status) ? `<div class="row-actions"><button class="btn btn-ghost" data-qs="${q.id}" data-to="closed">I don't need this any more</button></div>` : ''}
+    </div>`).join('')}</div>` : '<p class="muted">You haven\'t asked any supplier for a quote yet. Open a supplier\'s page and tap <b>Request a quote</b>.</p>'}`;
+  document.querySelectorAll('[data-replied]').forEach((a) => a.addEventListener('click', () => {
+    if (a.dataset.replied) db.rpc('set_quote_status', { p_id: a.dataset.replied, p_status: 'replied' }).then(() => setTimeout(() => quotesPage(u), 800));
+  }));
+  document.querySelectorAll('[data-qs]').forEach((b) => b.addEventListener('click', async () => {
+    const { error: err } = await db.rpc('set_quote_status', { p_id: b.dataset.qs, p_status: b.dataset.to });
+    if (err) return fail(err, 'Updating');
+    toast('Updated.'); quotesPage(u);
   }));
 }
 

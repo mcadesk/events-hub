@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=43';
-import { SAMPLE_LISTINGS } from './sample.js?v=43';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone } from './core.js?v=44';
+import { SAMPLE_LISTINGS } from './sample.js?v=44';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -18,6 +18,13 @@ async function updateAccountLink() {
 db.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') { clearMe(); updateAccountLink(); }
   if (event === 'PASSWORD_RECOVERY') go('/reset');
+  if (event === 'SIGNED_IN' && session.get('eh-oauth')) {
+    // Back from "Continue with Google": tidy the address bar and return to where the person was
+    session.set('eh-oauth', null);
+    const back = session.get('eh-return'); session.set('eh-return', null);
+    history.replaceState(null, '', location.pathname + (back && !back.includes('signin') ? back : '#/me'));
+    setTimeout(render, 0);
+  }
 });
 
 /* ---------- router ---------- */
@@ -36,7 +43,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=43');
+      const dash = await import('./dash.js?v=44');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -372,6 +379,19 @@ async function listingPage(slug) {
         <h3>Contact ${esc(l.contact_name || l.business_name)}</h3>
         <a class="btn btn-wa btn-block" href="${esc(waLink(l))}" target="_blank" rel="noopener" data-tap="whatsapp" data-id="${esc(l.id)}">Chat on WhatsApp</a>
         <a class="btn btn-ghost btn-block" href="tel:${esc(l.phone)}" data-tap="call" data-id="${esc(l.id)}">Call ${esc(l.phone)}</a>
+        ${slug.startsWith('sample-') || isOwner || l.status !== 'live' ? '' : `<button class="btn btn-gold btn-block" type="button" id="quote-open">Request a quote</button>
+        <form id="quote-form" class="form" hidden style="margin:10px 0;border-top:1px solid var(--line);padding-top:12px">
+          <b>Tell ${esc(l.business_name)} about your event</b>
+          <span class="hint">They will see your request and reply on WhatsApp.</span>
+          <div class="field"><label for="qt-type">Type of event</label><input type="text" id="qt-type" maxlength="60" placeholder="Wedding, funeral, birthday…"></div>
+          <div class="field"><label for="qt-date">Event date</label><input type="date" id="qt-date" min="${new Date().toISOString().slice(0, 10)}"></div>
+          <div class="field"><label for="qt-guests">Number of guests (about)</label><input type="number" id="qt-guests" min="1" max="100000" inputmode="numeric"></div>
+          <div class="field"><label for="qt-budget">Your budget in GH₵ (optional)</label><input type="number" id="qt-budget" min="0" step="1" inputmode="numeric"></div>
+          <div class="field"><label for="qt-details">What do you need?</label><textarea id="qt-details" rows="3" minlength="5" maxlength="800" required placeholder="For example: 200 chairs, 4 canopies and delivery to Juaben"></textarea></div>
+          <div class="field"><label for="qt-name">Your name</label><input type="text" id="qt-name" maxlength="80" required autocomplete="name" value="${esc(user?.full_name || '')}"></div>
+          <div class="field"><label for="qt-phone">Your WhatsApp number</label><input type="tel" id="qt-phone" required placeholder="024 123 4567" autocomplete="tel" value="${esc(localPhone(user?.phone || ''))}"></div>
+          <button class="btn btn-block" type="submit">Send request</button>
+        </form>`}
         <button class="btn btn-ghost btn-block" type="button" id="share">Share</button>
         <div class="safety">Agree prices in writing and avoid paying the full amount before your event.</div>
         <a href="#/finance" class="muted" style="font-size:.9rem">Need money for your event? See event loans →</a>
@@ -406,6 +426,28 @@ async function listingPage(slug) {
     if (error) return toast('Sorry, the report could not be sent.', true);
     e.target.hidden = true;
     toast('Thank you. Our team will check this listing.');
+  });
+  document.getElementById('quote-open')?.addEventListener('click', async () => {
+    if (!(await me())) { session.set('eh-return', location.hash); toast('Please sign in first — it is free.'); return go('/signin'); }
+    const f = document.getElementById('quote-form');
+    f.hidden = !f.hidden;
+    if (!f.hidden) f.querySelector('input').focus();
+  });
+  document.getElementById('quote-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const val = (id) => document.getElementById(id).value.trim();
+    const phone = toGhanaPhone(val('qt-phone'));
+    if (!phone) return toast('Please enter a valid Ghana phone number.', true);
+    const num = (id) => (val(id) === '' ? null : Number(val(id)));
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    const { error } = await db.rpc('request_quote', { p_listing: l.id, p_name: val('qt-name'), p_phone: phone,
+      p_event_type: val('qt-type') || null, p_event_date: val('qt-date') || null, p_guests: num('qt-guests'),
+      p_budget: num('qt-budget'), p_details: val('qt-details') });
+    btn.disabled = false;
+    if (error) return toast(error.message || 'Sorry, the request could not be sent.', true);
+    e.target.hidden = true;
+    document.getElementById('quote-open').outerHTML = '<div class="notice" style="margin:8px 0">✓ Request sent. The supplier will reply on WhatsApp. You can follow it under <a href="#/me/quotes">My account → Quotes</a>.</div>';
   });
   document.getElementById('share').addEventListener('click', async (e) => {
     logTap(l.id, 'share');

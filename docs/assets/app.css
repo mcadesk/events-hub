@@ -272,3 +272,9 @@ body.has-cta { padding-bottom: 70px; }
 .status-accepted { background: #e5f4e4; color: #1f6b2a; }
 .status-declined { background: #f6e4e2; color: var(--red); }
 #ja .check { white-space: normal; display: flex; padding: 6px 0; }
+.count-badge { display:inline-block; min-width:20px; padding:0 6px; border-radius:10px; background:var(--gold); color:var(--ink); font-size:.78rem; font-weight:700; text-align:center; }
+.status-replied { background: #e7f1fb; color: #1d4f8a; }
+.status-booked { background: var(--green-soft); color: var(--green); }
+.status-closed { background: #eee; color: #555; }
+.or-line { display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--muted, #777); font-size:.9rem; }
+.or-line::before, .or-line::after { content:""; flex:1; border-top:1px solid var(--line); }
