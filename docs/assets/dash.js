@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=42';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=43';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -34,6 +34,7 @@ export async function route(parts, params) {
     profile: () => profile(u),
     flyer: () => flyerForm(u, parts[2]),
     join: () => joinForm(u),
+    pay: () => need(u, ['admin', 'agent', 'coordinator']) && payPage(u, params),
     promote: () => promotePage(u, parts[2]),
     apps: () => need(u, ['admin', 'coordinator']) && applications(u, params)
   };
@@ -65,6 +66,7 @@ function shell(u, active, title, body) {
       ${t('reports', 'Reports', [...STAFF, 'coordinator'])}
       ${t('all', 'All listings', STAFF)}
       ${t('people', 'People', ['admin'])}
+      ${t('pay', u.role === 'admin' ? 'Payouts' : 'My pay', ['admin', 'agent', 'coordinator'])}
       ${t('apps', 'Applications', ['admin', 'coordinator'])}
       ${t('towns', 'Towns', ['admin', 'coordinator'])}
       ${t('featured', 'Featured', ['admin'])}
@@ -1370,6 +1372,66 @@ async function promotePage(u, listingId) {
     payOnline({ p_kind: 'place', p_listing: l.id, p_category: Number(document.getElementById('pr-cat').value), p_position: pos(),
       p_months: Number(document.getElementById('pr-m').value), p_level: document.getElementById('pr-lv').value }, () => go('/me'));
   });
+}
+
+/* ---------- helper pay ---------- */
+async function payPage(u, params) {
+  const isAdmin = u.role === 'admin';
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const ym = params.get('m') || `${(isAdmin ? prev : now).getFullYear()}-${String((isAdmin ? prev : now).getMonth() + 1).padStart(2, '0')}`;
+  const month = `${ym}-01`;
+  const [y, mo] = ym.split('-').map(Number);
+  const last = new Date(y, mo, 0).getDate();
+  shell(u, 'pay', isAdmin ? 'Payouts' : 'My pay', '<div class="skeleton"></div>');
+  const [{ data: rows, error }, { data: lines }, { data: history }] = await Promise.all([
+    db.rpc('month_earnings', { p_month: month }),
+    db.rpc('commission_lines', { p_from: month, p_to: `${ym}-${last}` }),
+    isAdmin ? Promise.resolve({ data: [] }) : db.from('payouts').select('month,amount,momo_ref,paid_at').eq('person_id', u.id).order('month', { ascending: false })
+  ]);
+  if (error) return fail(error, 'Loading pay');
+  const monthName = new Date(month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const linesFor = (id) => (lines || []).filter((l) => l.person_id === id);
+  const lineTable = (ls) => ls.length ? `<table class="table" style="font-size:.88rem"><thead><tr><th>Date</th><th>Supplier</th><th>Paid</th><th>Your share</th></tr></thead><tbody>${ls.map((l) => `<tr><td>${new Date(l.paid_on + 'T12:00:00').toLocaleDateString('en-GB')}</td><td>${esc(l.listing_name)}${l.first_payment ? ' <span class="muted">(first payment)</span>' : ''}</td><td>${cedi(l.amount)}</td><td><b>${cedi(l.commission)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No commission this month.</p>';
+  const status = (r) => r.paid_at ? `<span class="badge badge-verified">✓ Paid ${cedi(r.paid_amount)}</span><br><span class="muted" style="font-size:.85rem">${esc(r.momo_ref)} · ${new Date(r.paid_at).toLocaleDateString('en-GB')}</span>` : '<span class="badge">Not paid yet</span>';
+  const picker = `<div class="field" style="max-width:220px;margin-bottom:12px"><label for="p-m">Month</label><input type="month" id="p-m" value="${ym}" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px;min-height:44px"></div>`;
+  const rules = '<p class="hint">Agent commission: on a supplier\'s first paid place, 50% of one month\'s value plus 20% of the rest; on every later payment, 20%. Coordinators: 15% of their region\'s income (leaving out suppliers they registered themselves, which earn agent commission instead). Only payments actually received count — free places and donations never do.</p>';
+
+  if (isAdmin) {
+    const owed = (rows || []).filter((r) => !r.paid_at).reduce((s, r) => s + Number(r.total), 0);
+    const paid = (rows || []).filter((r) => r.paid_at).reduce((s, r) => s + Number(r.paid_amount), 0);
+    document.getElementById('dash').innerHTML = `${picker}
+      <p>Pay for <b>${esc(monthName)}</b>: <b>${cedi(owed)}</b> still to pay · ${cedi(paid)} already paid. Send each person's pay by MoMo, then record it here with the MoMo reference.</p>
+      <div class="row-list">${(rows || []).map((r) => `<div class="row">
+        <div class="row-top"><div><b>${esc(r.full_name || r.email || '—')}</b> <span class="muted">· ${esc(ROLE_LABEL[r.role] || r.role)}</span><br><span class="muted">MoMo: ${esc(localPhone(r.phone || '')) || 'no phone on file'}</span></div><div style="text-align:right">${status(r)}</div></div>
+        <dl class="kv"><dt>Agent commission</dt><dd>${cedi(r.commission)}</dd>${Number(r.coordinator_pay) ? `<dt>Coordinator 15%</dt><dd>${cedi(r.coordinator_pay)}</dd>` : ''}<dt>Total earned</dt><dd><b>${cedi(r.total)}</b></dd></dl>
+        ${linesFor(r.person_id).length ? `<details><summary>See the payments behind this</summary>${lineTable(linesFor(r.person_id))}</details>` : ''}
+        ${r.paid_at ? `<button class="linkish" data-undo="${r.person_id}">Undo this record</button>` : `<form class="filters" data-pay="${r.person_id}"><input type="number" min="0" step="0.01" required value="${Number(r.total).toFixed(2)}" aria-label="Amount sent" style="max-width:120px"><input type="text" required placeholder="MoMo reference / transaction ID" style="flex:1;min-width:180px"><button class="btn btn-small" type="submit">Mark as paid</button></form>`}
+      </div>`).join('') || '<div class="empty"><p class="muted">Nobody earned anything this month.</p></div>'}</div>${rules}`;
+    document.querySelectorAll('[data-pay]').forEach((f) => f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const [amt, ref] = f.querySelectorAll('input');
+      const { error: er } = await db.from('payouts').insert({ person_id: f.dataset.pay, month, amount: Number(amt.value), momo_ref: ref.value.trim(), paid_by: u.id });
+      if (er) return fail(er, 'Recording the payment');
+      toast('Payment recorded.'); payPage(u, params);
+    }));
+    document.querySelectorAll('[data-undo]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Remove this payment record? Only do this if it was recorded by mistake.')) return;
+      const { error: er } = await db.from('payouts').delete().eq('person_id', b.dataset.undo).eq('month', month);
+      if (er) return fail(er, 'Removing'); payPage(u, params);
+    }));
+  } else {
+    const r = (rows || [])[0] || { commission: 0, coordinator_pay: 0, total: 0 };
+    document.getElementById('dash').innerHTML = `${picker}
+      <div class="panel" style="max-width:760px;margin-bottom:16px"><h3 style="margin-top:0">${esc(monthName)}</h3>
+        <dl class="kv"><dt>Agent commission</dt><dd>${cedi(r.commission)}</dd>${u.role === 'coordinator' ? `<dt>Coordinator 15%</dt><dd>${cedi(r.coordinator_pay)}</dd>` : ''}<dt>Total earned</dt><dd><b>${cedi(r.total)}</b></dd><dt>Status</dt><dd>${status(r)}</dd></dl>
+        <p class="muted" style="font-size:.88rem;margin:6px 0 0">Pay for each month is sent by MoMo to your phone number after the month ends. This month's figure can still grow until the month is over.</p></div>
+      <h2>Payments behind your commission</h2>${lineTable(linesFor(u.id))}
+      <h2 style="margin-top:22px">Payments you have received</h2>
+      ${(history || []).length ? `<table class="table"><thead><tr><th>For</th><th>Amount</th><th>MoMo reference</th><th>Sent on</th></tr></thead><tbody>${history.map((h) => `<tr><td>${new Date(h.month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</td><td>${cedi(h.amount)}</td><td>${esc(h.momo_ref)}</td><td>${new Date(h.paid_at).toLocaleDateString('en-GB')}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No payments yet.</p>'}
+      ${rules}`;
+  }
+  document.getElementById('p-m').addEventListener('change', (e) => go(`/me/pay?m=${e.target.value}`));
 }
 
 const ROLE_WANT = { agent: 'Field agent', coordinator: 'Regional coordinator' };
