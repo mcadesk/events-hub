@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=48';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=49';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -600,7 +600,7 @@ async function getSettings() {
 }
 function payNote(st) {
   const price = st.flyer_price ? `GH₵ ${esc(st.flyer_price)}` : 'the weekly fee';
-  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week. After you send the flyer, pay online here with MoMo or card. Our team checks the flyer, then it goes live for 7 days. YAHYIAM staff never collect cash for flyers.`;
+  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week, plus Paystack's small payment charge (about 2%), which you pay at checkout. After you send the flyer, pay online here with MoMo or card. Our team checks the flyer, then it goes live for 7 days. YAHYIAM staff never collect cash for flyers.`;
   return st.momo_number
     ? `To publish, pay <b>${price}</b> by Mobile Money to <b>${esc(st.momo_number)}</b>${st.momo_name ? ` (${esc(st.momo_name)})` : ''}, using your phone number as the reference. Our team checks the payment and the flyer, then it goes live for 7 days.`
     : `The fee is <b>${price}</b> per week. Our team will contact you on WhatsApp to arrange payment, then your flyer goes live for 7 days.`;
@@ -1409,7 +1409,9 @@ async function promotePage(u, listingId) {
   const update = async () => {
     const cat = Number(document.getElementById('pr-cat').value), lv = document.getElementById('pr-lv').value, m = Number(document.getElementById('pr-m').value);
     const { data: price } = await db.rpc('place_price', { p_level: lv, p_position: pos(), p_months: m, p_town: l.base_town_id });
-    document.getElementById('pr-total').textContent = `Total: ${cedi(price || 0)}`;
+    const { data: fee } = await db.rpc('paystack_fee', { p_amount: price || 0 });
+    const gh = (n) => 'GH₵ ' + Number(n || 0).toFixed(2);
+    document.getElementById('pr-total').innerHTML = `Price: ${gh(price)}<br><span class="muted" style="font-size:.9rem">+ Paystack payment charge ${gh(fee)}</span><br>You pay: ${gh(Number(price || 0) + Number(fee || 0))}`;
     let full = false;
     for (const p of ['top', 'featured']) {
       const { data: left } = await db.rpc('places_left_at', { p_category: cat, p_level: lv, p_position: p, p_town: l.base_town_id });
