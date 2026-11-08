@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=39';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=40';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -1041,7 +1041,7 @@ async function townsAdmin(u) {
     districts = (await db.from('districts').select('id,name').in('region_id', regionIds).order('name')).data || [];
   } else {
     [{ data: towns }, { data: districts }] = await Promise.all([
-      db.from('towns').select('id,name,slug,lat,lng,active,districts(name)').order('name'),
+      db.from('towns').select('id,name,slug,lat,lng,active,size,districts(name)').order('name'),
       db.from('districts').select('id,name').order('name')
     ]);
   }
@@ -1056,7 +1056,7 @@ async function townsAdmin(u) {
       <button class="btn" type="submit">Add town</button></form>
     <table class="table"><thead><tr><th>Town</th><th>Municipality</th><th>Location</th><th></th></tr></thead><tbody>
       ${towns.map((t) => `<tr><td>${esc(t.name)}</td><td>${esc(t.districts?.name)}</td><td>${t.lat != null ? `${t.lat}, ${t.lng}` : '<span class="muted">—</span>'}</td>
-      <td><button class="linkish" data-loc="${t.id}">Set location</button> · <button class="linkish" data-act="${t.id}" data-v="${!t.active}">${t.active ? 'Hide' : 'Show'}</button></td></tr>`).join('')}</tbody></table>`;
+      <td><button class="linkish" data-loc="${t.id}">Set location</button> · <button class="linkish" data-act="${t.id}" data-v="${!t.active}">${t.active ? 'Hide' : 'Show'}</button>${u.role === 'admin' ? ` · <button class="linkish" data-size="${t.id}" data-v="${t.size === 'big' ? 'normal' : 'big'}">${t.size === 'big' ? 'Big town ✓ (make normal)' : 'Mark as big town'}</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
   document.getElementById('tw-f').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('tw-n').value.trim();
@@ -1066,6 +1066,10 @@ async function townsAdmin(u) {
     if (error) return fail(error, 'Adding the town');
     resetRef(); toast(`${name} added.`); townsAdmin(u);
   });
+  document.querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', async () => {
+    const { error } = await db.from('towns').update({ size: b.dataset.v }).eq('id', b.dataset.size);
+    if (error) return fail(error, 'Saving'); toast(b.dataset.v === 'big' ? 'Marked as a big town: more town places, +20% town prices.' : 'Back to a normal town.'); b.dataset.v = b.dataset.v === 'big' ? 'normal' : 'big'; b.textContent = b.dataset.v === 'normal' ? 'Big town ✓ (make normal)' : 'Mark as big town';
+  }));
   document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
     const { error } = await db.from('towns').update({ active: b.dataset.v === 'true' }).eq('id', b.dataset.act);
     if (error) return fail(error, 'Updating'); resetRef(); townsAdmin(u);
@@ -1087,7 +1091,7 @@ async function featuredAdmin(u) {
   shell(u, 'featured', 'Featured listings', '<div class="skeleton"></div>');
   const today = new Date().toISOString().slice(0, 10);
   const [{ data: slots }, { data: prices }] = await Promise.all([
-    db.from('featured_slots').select('id,months,amount,is_free,starts_on,ends_on,payment_ref,category_id,town_id,position,listings(business_name,slug)').gte('ends_on', today).order('ends_on'),
+    db.from('featured_slots').select('id,months,amount,is_free,starts_on,ends_on,payment_ref,category_id,town_id,position,level,listings(business_name,slug)').gte('ends_on', today).order('ends_on'),
     db.from('featured_prices').select('tier,months,amount')
   ]);
   const st = await getSettings();
@@ -1112,12 +1116,28 @@ async function featuredAdmin(u) {
       </div>
       <div class="field"><label for="fe-r">MoMo / receipt reference</label><input type="text" id="fe-r" required></div>
       <button class="btn" type="submit">Make featured</button><div id="fe-msg"></div></form>
+    <form class="form panel" id="pp-f" style="max-width:720px;margin-bottom:18px"><h3 style="margin:0">Prices and number of places (per category)</h3>
+      <span class="hint">Monthly price in GH₵ and how many places each level has. 3/6/12-month plans are 2.7×, 4.8× and 8.4× the monthly price.</span>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Level</th><th>★ Top: price / places</th><th>Featured: price / places</th></tr></thead><tbody id="pp-body"><tr><td colspan="3" class="muted">Loading…</td></tr></tbody></table></div>
+      <button class="btn btn-small" type="submit">Save prices</button></form>
     <div id="pay-list"></div>
     <h2>Active paid places</h2>
     <table class="table"><thead><tr><th>Listing</th><th>Where</th><th>Until</th><th>Paid</th><th></th></tr></thead><tbody>
-      ${(slots || []).map((s) => `<tr><td><a href="#/l/${esc(s.listings?.slug)}">${esc(s.listings?.business_name)}</a><br><span class="badge ${s.position === 'top' ? 'badge-top' : 'badge-featured'}">${s.position === 'top' ? '★ Top spot' : 'Featured'}</span></td><td>${esc(REF.catById[s.category_id]?.name)}, ${esc(REF.townById[s.town_id]?.name)}</td>
+      ${(slots || []).map((s) => `<tr><td><a href="#/l/${esc(s.listings?.slug)}">${esc(s.listings?.business_name)}</a><br><span class="badge ${s.position === 'top' ? 'badge-top' : 'badge-featured'}">${s.position === 'top' ? '★ Top spot' : 'Featured'}${{ national: ' · Ghana-wide', region: ' · Region', district: ' · District' }[s.level] || ''}</span></td><td>${esc(REF.catById[s.category_id]?.name)}, ${esc(REF.townById[s.town_id]?.name)}</td>
         <td>${new Date(s.ends_on).toLocaleDateString('en-GB')}</td><td>${s.is_free ? 'Free (founding)' : cedi(s.amount)}${s.payment_ref ? `<br><span class="muted">${esc(s.payment_ref)}</span>` : ''}</td>
         <td><button class="linkish" data-end="${s.id}">End now</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">None yet.</td></tr>'}</tbody></table>`;
+  const PPL = { national: 'National (all Ghana)', region: 'Regional', district: 'District', town: 'Town', town_big: 'Big town (e.g. Kumasi)' };
+  db.from('place_prices').select('level,position,monthly,slots').then(({ data: pp }) => {
+    const g = (lv, pos) => (pp || []).find((p) => p.level === lv && p.position === pos) || { monthly: '', slots: '' };
+    document.getElementById('pp-body').innerHTML = Object.keys(PPL).map((lv) => `<tr><td>${PPL[lv]}</td>${['top', 'featured'].map((pos) => `<td><input type="number" min="1" step="1" data-pp="${lv}|${pos}|monthly" value="${esc(g(lv, pos).monthly)}" style="width:90px"> / <input type="number" min="0" step="1" data-pp="${lv}|${pos}|slots" value="${esc(g(lv, pos).slots)}" style="width:60px"></td>`).join('')}</tr>`).join('');
+  });
+  document.getElementById('pp-f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rows = {};
+    document.querySelectorAll('[data-pp]').forEach((i) => { const [lv, pos, f] = i.dataset.pp.split('|'); (rows[lv + '|' + pos] ||= { level: lv, position: pos })[f] = Number(i.value); });
+    const { error } = await db.from('place_prices').upsert(Object.values(rows));
+    if (error) return fail(error, 'Saving prices'); toast('Prices saved.');
+  });
   db.from('payments').select('reference,kind,amount,status,channel,note,created_at,paid_at,profiles(full_name,email)').neq('status', 'pending').order('created_at', { ascending: false }).limit(50).then(({ data: pays }) => {
     const box = document.getElementById('pay-list'); if (!box) return;
     const attention = (pays || []).filter((p) => p.status === 'needs_attention');
@@ -1295,24 +1315,30 @@ async function recheckMyPayments(u) {
 const NO_CASH = '<div class="notice" style="background:var(--gold-soft)"><b>Pay only on this page.</b> NHYIAMU staff and field agents never collect cash or MoMo for you. If anyone asks you to pay them, please report it.</div>';
 
 async function promotePage(u, listingId) {
-  const { data: l } = await db.from('listings').select('id,slug,business_name,status,owner_id,base_town_id,towns(name),listing_categories(categories(id,parent_id))').eq('id', listingId).maybeSingle();
+  const { data: l } = await db.from('listings').select('id,slug,business_name,status,owner_id,base_town_id,coverage,towns(name,size,districts(name,regions(name))),listing_categories(categories(id,parent_id))').eq('id', listingId).maybeSingle();
   if (!l || l.owner_id !== u.id) return shell(u, 'home', 'Promote my listing', '<div class="notice error">Listing not found.</div>');
   if (l.status !== 'live') return shell(u, 'home', 'Promote my listing', '<div class="notice">Your listing must be approved and live before you can buy a Top spot or Featured place.</div>');
   const tops = [...new Set((l.listing_categories || []).map((x) => x.categories?.parent_id || x.categories?.id).filter(Boolean))].map((id) => REF.catById[id]).filter(Boolean);
-  const [{ data: prices }, { data: mine }] = await Promise.all([
-    db.from('featured_prices').select('tier,months,amount'),
-    db.from('featured_slots').select('category_id,position,ends_on').eq('listing_id', l.id).gte('ends_on', new Date().toISOString().slice(0, 10))
-  ]);
-  const price = (pos, m) => (prices || []).find((p) => p.tier === (pos === 'top' ? 'premium' : 'standard') && p.months === m)?.amount;
+  const { data: mine } = await db.from('featured_slots').select('category_id,position,level,ends_on').eq('listing_id', l.id).gte('ends_on', new Date().toISOString().slice(0, 10));
+  const reach = { town: 0, district: 1, region: 2, nationwide: 3 }[l.coverage] ?? 0;
+  const LV = [
+    ['town', `Town — ${l.towns?.name || 'your town'}`, 0],
+    ['district', `District — ${l.towns?.districts?.name || 'your district'}`, 1],
+    ['region', `Region — ${l.towns?.districts?.regions?.name || 'your region'}`, 2],
+    ['national', 'National — all of Ghana', 3]
+  ];
+  const LVL = { national: 'across Ghana', region: 'in your region', district: 'in your district', town: 'in your town' };
   shell(u, 'home', `Promote: ${l.business_name}`, `
     <div style="max-width:760px">
-      <p class="muted">Show <b>${esc(l.business_name)}</b> above other suppliers when people search in ${esc(l.towns?.name || 'your town')}. Places rotate daily within each level, and each category has only a few.</p>
-      ${(mine || []).length ? `<div class="notice" style="margin-bottom:12px">You already have: ${mine.map((s) => `${s.position === 'top' ? '★ Top spot' : 'Featured'} in ${esc(REF.catById[s.category_id]?.name || '')} until ${new Date(s.ends_on + 'T12:00:00').toLocaleDateString('en-GB')}`).join('; ')}. Paying again for the same place adds the time on.</div>` : ''}
+      <p class="muted">Show <b>${esc(l.business_name)}</b> above other suppliers in its category. Wider places show above town places and reach more people. Places rotate daily within each group.</p>
+      ${(mine || []).length ? `<div class="notice" style="margin-bottom:12px">You already have: ${mine.map((s) => `${s.position === 'top' ? '★ Top spot' : 'Featured'} ${LVL[s.level || 'town']} in ${esc(REF.catById[s.category_id]?.name || '')} until ${new Date(s.ends_on + 'T12:00:00').toLocaleDateString('en-GB')}`).join('; ')}. Paying again for the same place adds the time on.</div>` : ''}
       <form class="form panel" id="pr">
         <div class="field"><label for="pr-cat">Category</label><select id="pr-cat">${tops.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="pr-lv">Where people will see you</label><select id="pr-lv">${LV.map(([v, t, n]) => `<option value="${v}" ${n > reach ? 'disabled' : ''}>${esc(t)}${n > reach ? ' (you don’t serve this whole area)' : ''}</option>`).join('')}</select>
+          ${reach < 3 ? '<span class="hint">To buy a wider place, first change “Areas you serve” in your listing to cover that area — only if you really travel there.</span>' : ''}</div>
         <div class="field"><label>Place</label>
-          <label class="check" style="white-space:normal"><input type="radio" name="pr-pos" value="top"> <span><b>★ Top spot</b> — the very top (2 per category per town) <span class="muted" id="left-top"></span></span></label>
-          <label class="check" style="white-space:normal"><input type="radio" name="pr-pos" value="featured" checked> <span><b>Featured</b> — just below (3 per category per town) <span class="muted" id="left-featured"></span></span></label>
+          <label class="check" style="white-space:normal"><input type="radio" name="pr-pos" value="top"> <span><b>★ Top spot</b> — the very top of this level <span class="muted" id="left-top"></span></span></label>
+          <label class="check" style="white-space:normal"><input type="radio" name="pr-pos" value="featured" checked> <span><b>Featured</b> — just below <span class="muted" id="left-featured"></span></span></label>
         </div>
         <div class="field"><label for="pr-m">How long</label><select id="pr-m">${[1, 3, 6, 12].map((m) => `<option value="${m}">${m} month${m > 1 ? 's' : ''}</option>`).join('')}</select></div>
         <p style="font-size:1.25rem;margin:4px 0"><b id="pr-total"></b></p>
@@ -1323,22 +1349,25 @@ async function promotePage(u, listingId) {
     </div>`);
   const pos = () => document.querySelector('input[name=pr-pos]:checked').value;
   const update = async () => {
-    const cat = Number(document.getElementById('pr-cat').value);
-    const m = Number(document.getElementById('pr-m').value);
-    document.getElementById('pr-total').textContent = `Total: ${cedi(price(pos(), m) || 0)}`;
+    const cat = Number(document.getElementById('pr-cat').value), lv = document.getElementById('pr-lv').value, m = Number(document.getElementById('pr-m').value);
+    const { data: price } = await db.rpc('place_price', { p_level: lv, p_position: pos(), p_months: m, p_town: l.base_town_id });
+    document.getElementById('pr-total').textContent = `Total: ${cedi(price || 0)}`;
+    let full = false;
     for (const p of ['top', 'featured']) {
-      const { data: left } = await db.rpc('places_left', { p_category: cat, p_town: l.base_town_id, p_position: p });
-      const own = (mine || []).some((s) => s.category_id === cat && s.position === p);
+      const { data: left } = await db.rpc('places_left_at', { p_category: cat, p_level: lv, p_position: p, p_town: l.base_town_id });
+      const own = (mine || []).some((s) => s.category_id === cat && s.position === p && (s.level || 'town') === lv);
       document.getElementById(`left-${p}`).textContent = own ? '· you have this — pay to add time' : left > 0 ? `· ${left} left` : '· all taken right now';
+      if (p === pos() && !own && !(left > 0)) full = true;
     }
+    document.getElementById('pr-pay').disabled = full;
   };
-  ['pr-cat', 'pr-m'].forEach((id) => document.getElementById(id).addEventListener('change', update));
+  ['pr-cat', 'pr-lv', 'pr-m'].forEach((id) => document.getElementById(id).addEventListener('change', update));
   document.querySelectorAll('input[name=pr-pos]').forEach((r) => r.addEventListener('change', update));
   update();
   document.getElementById('pr').addEventListener('submit', (e) => {
     e.preventDefault();
-    payOnline({ p_kind: 'place', p_listing: l.id, p_category: Number(document.getElementById('pr-cat').value), p_position: pos(), p_months: Number(document.getElementById('pr-m').value) },
-      () => go('/me'));
+    payOnline({ p_kind: 'place', p_listing: l.id, p_category: Number(document.getElementById('pr-cat').value), p_position: pos(),
+      p_months: Number(document.getElementById('pr-m').value), p_level: document.getElementById('pr-lv').value }, () => go('/me'));
   });
 }
 

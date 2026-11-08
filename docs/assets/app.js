@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=39';
-import { SAMPLE_LISTINGS } from './sample.js?v=39';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=40';
+import { SAMPLE_LISTINGS } from './sample.js?v=40';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=39');
+      const dash = await import('./dash.js?v=40');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -261,7 +261,7 @@ function card(l) {
       <div class="card-meta">${esc(l.town_name)}${l.rating ? ` · <span class="stars">★</span> ${l.rating} (${l.review_count})` : ''}${l.distance_km != null && l.travels ? ` · ${Math.round(l.distance_km)} km away` : ''}</div>
       <div class="price">${esc(priceText(l))}</div>
       <div class="badges">
-        ${l.featured_level === 2 ? '<span class="badge badge-top">★ Top spot</span>' : l.featured ? '<span class="badge badge-featured">Featured</span>' : ''}
+        ${l.featured_level === 2 ? `<span class="badge badge-top">★ Top spot${SCOPE[l.place_level] || ''}</span>` : l.featured ? `<span class="badge badge-featured">Featured${SCOPE[l.place_level] || ''}</span>` : ''}
         ${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}
         ${l.supporter ? '<span class="badge badge-supporter">♥ Supporter</span>' : ''}
         ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
@@ -543,18 +543,23 @@ function listPage() {
     <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and a moderator will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Optional: get seen first</h2>
-    <p class="muted">Listing is free. If you want to appear above other suppliers in your category and town, you can pay for a place at the top. Each category in each town has <b>2 Top spots</b> and <b>3 Featured places</b>, shared in daily rotation.</p>
+    <p class="muted">Listing is free. If you want to appear above other suppliers, you can pay for a place at the top of your category. Choose how far you want to be seen: your <b>town</b>, your <b>district</b>, your <b>region</b>, or <b>all of Ghana</b>. Wider places show above town places, and each level has only a few places, shared in daily rotation. Wider levels are for suppliers who really serve that whole area.</p>
     <p class="muted">You pay online from your own account (MoMo or card) — <b>NHYIAMU staff and field agents never collect money from you</b>. If anyone asks you to pay them in cash, please report it.</p>
     <div id="prices" class="panel">Loading…</div>
   </div>`;
-  db.from('featured_prices').select('tier,months,amount').order('months').then(({ data }) => {
+  db.from('place_prices').select('level,position,monthly,slots').then(({ data }) => {
     if (!data) return;
-    const row = (t) => data.filter((p) => p.tier === t).map((p) => `<td>${cedi(p.amount)}</td>`).join('');
+    const get = (lv, pos) => data.find((p) => p.level === lv && p.position === pos);
+    const cell = (lv, pos) => { const p = get(lv, pos); return p ? `<td>${cedi(p.monthly)}<br><span class="muted" style="font-size:.8rem">${p.slots} place${p.slots === 1 ? '' : 's'}</span></td>` : '<td>—</td>'; };
     document.getElementById('prices').innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.95rem">
-      <thead><tr><th style="text-align:left">Plan</th>${[...new Set(data.map((p) => p.months))].map((m) => `<th style="text-align:left">${m} month${m > 1 ? 's' : ''}</th>`).join('')}</tr></thead>
-      <tbody><tr><td><b>★ Top spot</b><br><span class="muted" style="font-size:.8rem">The very top (2 places)</span></td>${row('premium')}</tr><tr><td><b>Featured</b><br><span class="muted" style="font-size:.8rem">Just below (3 places)</span></td>${row('standard')}</tr></tbody></table></div>`;
+      <thead><tr><th style="text-align:left">Seen in</th><th style="text-align:left">★ Top spot / month</th><th style="text-align:left">Featured / month</th></tr></thead>
+      <tbody>${['national', 'region', 'district', 'town', 'town_big'].map((lv) => `<tr><td><b>${LEVEL_NAME[lv]}</b>${lv === 'national' ? '<br><span class="muted" style="font-size:.8rem">every town in Ghana</span>' : lv === 'region' ? '<br><span class="muted" style="font-size:.8rem">every town in your region</span>' : lv === 'district' ? '<br><span class="muted" style="font-size:.8rem">every town in your district</span>' : ''}</td>${cell(lv, 'top')}${cell(lv, 'featured')}</tr>`).join('')}</tbody></table></div>
+      <p class="muted" style="margin:8px 0 0;font-size:.88rem">Places are per category. Longer plans cost less: 3 months = 2.7 months' price, 6 months = 4.8, 12 months = 8.4.</p>`;
   });
 }
+
+const SCOPE = { national: ' · Ghana-wide', region: ' · Region', district: ' · District' };
+const LEVEL_NAME = { national: 'National', region: 'Regional', district: 'District', town: 'Town', town_big: 'Town (big towns, e.g. Kumasi)' };
 
 function notFound(msg = 'This page could not be found.') {
   document.title = 'Not found — NHYIAMU';
