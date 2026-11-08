@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=40';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=41';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -18,7 +18,7 @@ export async function route(parts, params) {
     home: () => home(u),
     new: () => editor(u, null, false),
     edit: () => editor(u, parts[2], false),
-    register: () => need(u, ['agent', ...STAFF]) && editor(u, null, true),
+    register: () => need(u, ['agent', 'coordinator', ...STAFF]) && editor(u, null, true),
     agent: () => need(u, ['agent', 'coordinator', ...STAFF]) && agentHome(u),
     region: () => need(u, ['coordinator']) && regionHome(u, params),
     review: () => need(u, STAFF) && reviewQueue(u),
@@ -327,7 +327,7 @@ async function editor(u, id, asAgent) {
     l = data; cats = data.listing_categories.map((c) => c.category_id); photos = data.listing_photos.sort((a, b) => a.sort - b.sort);
   }
   const isNew = !l;
-  const agentMode = isNew ? (asAgent && u.role === 'agent') : !!l.registered_by && l.registered_by === u.id;
+  const agentMode = isNew ? (asAgent && ['agent', 'coordinator'].includes(u.role)) : !!l.registered_by && l.registered_by === u.id;
   const title = isNew ? (asAgent ? 'Register a supplier' : 'New listing') : `Edit: ${l.business_name}`;
   const v = (k, d = '') => esc(l?.[k] ?? d);
   const topOf = (cid) => { const c = REF.catById[cid]; return c ? (c.parent_id ? REF.catById[c.parent_id].slug : c.slug) : null; };
@@ -778,7 +778,7 @@ async function agentHome(u) {
   const { data: todo } = await q;
   document.getElementById('dash').innerHTML = `
     <p>${u.role === 'coordinator' ? 'Listings in your region that no one has verified yet.' : townIds.length ? `Your towns: <b>${townIds.map((id) => esc(REF.townById[id]?.name)).join(', ')}</b>` : 'You see all towns.'}</p>
-    ${u.role === 'coordinator' ? '' : '<div class="row-actions" style="margin-bottom:16px"><a class="btn" href="#/me/register">+ Register a supplier</a><a class="btn btn-ghost" href="#/me/tally">My tally</a></div>'}
+    <div class="row-actions" style="margin-bottom:16px"><a class="btn" href="#/me/register">+ Register a supplier</a><a class="btn btn-ghost" href="#/me/tally">${u.role === 'coordinator' ? 'Tally and pay' : 'My tally'}</a></div>
     <h2>Waiting for a visit</h2><p class="muted">Visit these suppliers, check the business is real, then mark them verified.</p>
     <div class="row-list">${(todo || []).length ? todo.map((l) => `<div class="row"><div class="row-top"><div><b>${esc(l.business_name)}</b><br><span class="muted">${esc(l.towns?.name)}</span></div>${statusBadge(l.status)}</div>
       <div class="row-actions"><a class="btn btn-ghost" href="#/l/${esc(l.slug)}">View</a><button class="btn" data-verify="${l.id}">Mark verified (I visited)</button></div></div>`).join('')
@@ -805,8 +805,8 @@ async function tally(u, params) {
   document.getElementById('dash').innerHTML = `
     <div class="field" style="max-width:220px;margin-bottom:12px"><label for="t-m">Month</label><input type="month" id="t-m" value="${ym}" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px;min-height:44px"></div>
     ${isMod ? '' : `<div style="overflow-x:auto"><table class="table"><thead><tr><th>Agent</th><th>Registered this month</th><th>Verified this month</th><th>Live listings (all time)</th></tr></thead>
-    <tbody>${(data || []).map((r) => `<tr><td><b>${esc(r.agent_name || '—')}</b><br><span class="muted">${esc(r.agent_email || '')}</span></td><td>${r.registered}</td><td>${r.verified}</td><td>${r.live}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No agents yet.</td></tr>'}</tbody></table></div>
-    <p class="hint">Commission is paid on featured fees from suppliers an agent registered: 50% of the first month's value, then 20% of later payments.</p>`}
+    <tbody>${(data || []).map((r) => `<tr><td><b>${esc(r.agent_name || '—')}</b>${r.is_coordinator ? ' <span class="badge" style="font-size:.75rem">Coordinator</span>' : ''}<br><span class="muted">${esc(r.agent_email || '')}</span></td><td>${r.registered}</td><td>${r.verified}</td><td>${r.live}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No agents yet.</td></tr>'}</tbody></table></div>
+    <p class="hint">Commission is paid on paid places bought by suppliers an agent registered: 50% of the first month's value, then 20% of later payments. The same applies to suppliers a coordinator registers personally.</p>`}
     <div id="mod-earn"></div>
     <div id="coord-earn"></div>`;
   if (['admin', 'moderator'].includes(u.role)) {
@@ -825,11 +825,12 @@ async function tally(u, params) {
     const rows = ce || [];
     const total = rows.reduce((s, r) => s + Number(r.earnings), 0);
     document.getElementById('coord-earn').innerHTML = `<h2 style="margin-top:26px">${u.role === 'admin' ? 'Regional coordinator pay' : 'My pay as coordinator'}</h2>
-      <p class="muted" style="margin-top:-4px">10% of the region's income this month: Top spot and Featured payments recorded for its towns, and flyer fees for events held there. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
-      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Region</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Region income</th><th>Pay (10%)</th></tr></thead><tbody>
+      <p class="muted" style="margin-top:-4px">10% of the region's income this month: paid places bought in its towns and flyer fees for events held there. Payments from suppliers the coordinator registered personally are left out here, because the coordinator earns agent commission on those instead. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Region</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Region income</th><th>Pay (10%)</th><th>Live suppliers registered by</th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${esc(r.region_name)}</td><td>${r.coordinator_id ? `<b>${esc(r.coordinator_name || '—')}</b><br><span class="muted">${esc(r.coordinator_email || '')}</span>` : '<span class="muted">No coordinator</span>'}</td>
-        <td>${cedi(r.place_income)}</td><td>${cedi(r.flyer_income)}</td><td>${cedi(r.total_income)}</td><td><b>${r.coordinator_id ? cedi(r.earnings) : '—'}</b></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No regional income or coordinators this month.</td></tr>'}
-      </tbody>${rows.length && u.role === 'admin' ? `<tfoot><tr><td colspan="5"><b>Total to pay coordinators</b></td><td><b>${cedi(total)}</b></td></tr></tfoot>` : ''}</table></div>`;
+        <td>${cedi(r.place_income)}</td><td>${cedi(r.flyer_income)}</td><td>${cedi(r.total_income)}</td><td><b>${r.coordinator_id ? cedi(r.earnings) : '—'}</b></td>
+        <td>${r.coordinator_id ? `Coordinator: <b>${r.self_registered}</b><br>Agents: <b>${r.agents_registered}</b>${Number(r.self_registered) > Number(r.agents_registered) && Number(r.self_registered) >= 5 ? '<br><span class="badge" style="background:#f6e4e2;color:var(--red)">Check: coordinator keeps most</span>' : ''}` : '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No regional income or coordinators this month.</td></tr>'}
+      </tbody>${rows.length && u.role === 'admin' ? `<tfoot><tr><td colspan="5"><b>Total to pay coordinators</b></td><td><b>${cedi(total)}</b></td><td></td></tr></tfoot>` : ''}</table></div>`;
   }
 }
 
