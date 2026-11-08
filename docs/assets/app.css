@@ -263,7 +263,7 @@ body.has-cta { padding-bottom: 70px; }
 .donate-box { border: 2px solid var(--gold); background: var(--gold-soft); margin: 14px 0; }
 
 .role-cards { display: grid; gap: 12px; margin-bottom: 14px; }
-@media (min-width: 760px) { .role-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 760px) { .role-cards { grid-template-columns: repeat(2, 1fr); } }
 .role-cards .panel h3 { margin: 0 0 6px; }
 .role-cards .panel p { margin: 0 0 8px; }
 .app-card dl.kv { margin: 6px 0; }

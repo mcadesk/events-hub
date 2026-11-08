@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=41';
-import { SAMPLE_LISTINGS } from './sample.js?v=41';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg } from './core.js?v=42';
+import { SAMPLE_LISTINGS } from './sample.js?v=42';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -36,7 +36,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=41');
+      const dash = await import('./dash.js?v=42');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -405,7 +405,7 @@ async function listingPage(slug) {
       reason: document.getElementById('rp-reason').value, note: document.getElementById('rp-note').value.trim() || null });
     if (error) return toast('Sorry, the report could not be sent.', true);
     e.target.hidden = true;
-    toast('Thank you. A moderator will check this listing.');
+    toast('Thank you. Our team will check this listing.');
   });
   document.getElementById('share').addEventListener('click', async (e) => {
     logTap(l.id, 'share');
@@ -494,7 +494,7 @@ function aboutPage() {
     <div class="cta-band" style="margin-top:14px"><div><b>NHYIAMU is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
     <h2>Work with us</h2>
-    <p>NHYIAMU is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents, moderators and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
+    <p>NHYIAMU is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
   </div>`;
 }
 
@@ -506,8 +506,7 @@ function joinPage() {
     <h2>The roles</h2>
     <div class="role-cards">
       <div class="panel"><h3>Field agent</h3><p>Visit event suppliers and market sellers in your town, help them list on NHYIAMU, take photos and verify them.</p><p class="muted"><b>Pay:</b> commission. 50% of the first month when a supplier you registered buys a Top spot or Featured place, then 20% of every later payment.</p></div>
-      <div class="panel"><h3>Moderator</h3><p>Check new listings and flyers on your phone, and handle reports from visitors.</p><p class="muted"><b>Pay:</b> moderators share 10% of NHYIAMU's monthly income, split by the work each one does.</p></div>
-      <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: check applicants, hire and guide field agents and moderators, and open new towns.</p><p class="muted"><b>Pay:</b> 10% of the income from your region every month.</p></div>
+      <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: check applicants, hire and guide field agents, open new towns, and check new listings, flyers and reports from your region on your phone.</p><p class="muted"><b>Pay:</b> 15% of the income from your region every month, plus agent commission on suppliers you register yourself.</p></div>
     </div>
     <p class="notice" style="background:var(--gold-soft)">All pay is commission. It starts small and grows as more suppliers in your area join and pay for extras. It works best alongside other work or study at first.</p>
     <h2>What you need</h2>
@@ -540,7 +539,7 @@ function listPage() {
       <li><b>First 10 suppliers in each town</b> get 3 months featured free and a Founding supplier badge.</li>
       <li><b>Get verified:</b> an NHYIAMU field agent visits you and adds the Verified badge.</li>
     </ul>
-    <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and a moderator will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
+    <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and our team will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Optional: get seen first</h2>
     <p class="muted">Listing is free. If you want to appear above other suppliers, you can pay for a place at the top of your category. Choose how far you want to be seen: your <b>town</b>, your <b>district</b>, your <b>region</b>, or <b>all of Ghana</b>. Wider places show above town places, and each level has only a few places, shared in daily rotation. Wider levels are for suppliers who really serve that whole area.</p>
@@ -609,7 +608,7 @@ async function flyerPage(id) {
   const wa = `https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello, I saw your flyer "${f.title}" on NHYIAMU.`)}`;
   app.innerHTML = `<div class="wrap section">
     <div class="crumbs" style="margin-top:0"><a href="#/">Home</a> › <a href="#/t/${esc(f.towns.slug)}">${esc(f.towns.name)}</a> › Event</div>
-    ${f.status !== 'approved' ? `<div class="notice" style="margin-bottom:12px">This flyer is <b>${esc(f.status)}</b> and only you and moderators can see it.${f.reject_reason ? ' Reason: ' + esc(f.reject_reason) : ''}</div>` : ''}
+    ${f.status !== 'approved' ? `<div class="notice" style="margin-bottom:12px">This flyer is <b>${esc(f.status)}</b> and only you and our team can see it.${f.reject_reason ? ' Reason: ' + esc(f.reject_reason) : ''}</div>` : ''}
     <div class="detail">
       <div>${f.image_path ? `<img class="flyer-full" src="${esc(photoUrl(f.image_path))}" alt="Flyer for ${esc(f.title)}">` : ''}</div>
       <aside class="panel contact-panel">

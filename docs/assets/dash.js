@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=41';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=42';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -21,7 +21,7 @@ export async function route(parts, params) {
     register: () => need(u, ['agent', 'coordinator', ...STAFF]) && editor(u, null, true),
     agent: () => need(u, ['agent', 'coordinator', ...STAFF]) && agentHome(u),
     region: () => need(u, ['coordinator']) && regionHome(u, params),
-    review: () => need(u, STAFF) && reviewQueue(u),
+    review: () => need(u, [...STAFF, 'coordinator']) && reviewQueue(u),
     reports: () => need(u, [...STAFF, 'coordinator']) && reportsQueue(u),
     all: () => need(u, STAFF) && allListings(u, params),
     people: () => need(u, ['admin']) && people(u, params),
@@ -61,7 +61,7 @@ function shell(u, active, title, body) {
       ${t('region', 'My region', ['coordinator'])}
       ${t('agent', u.role === 'coordinator' ? 'Waiting for a visit' : 'My towns', ['agent', 'coordinator', 'admin'])}
       ${t('register', 'Register a supplier', ['agent', 'moderator', 'admin'])}
-      ${t('review', 'Pending review', STAFF)}
+      ${t('review', 'Pending review', [...STAFF, 'coordinator'])}
       ${t('reports', 'Reports', [...STAFF, 'coordinator'])}
       ${t('all', 'All listings', STAFF)}
       ${t('people', 'People', ['admin'])}
@@ -218,7 +218,7 @@ async function home(u) {
   const count = (id, kind) => (taps || []).filter((t) => t.listing_id === id && t.kind === kind).length;
   const stale = (l) => (Date.now() - new Date(l.last_confirmed_at)) > 180 * 864e5;
   const intro = u.role === 'host' && !listings.length
-    ? `<div class="cta-band"><div><h3>List your business free</h3><span class="muted">Add your photos, prices and WhatsApp number. A moderator checks it, then people near you can find you.</span></div><a class="btn" href="#/me/new">Create my listing</a></div>` : '';
+    ? `<div class="cta-band"><div><h3>List your business free</h3><span class="muted">Add your photos, prices and WhatsApp number. Our team checks it, then people near you can find you.</span></div><a class="btn" href="#/me/new">Create my listing</a></div>` : '';
   let donor = null;
   try { const { data: ds } = await db.rpc('my_donor_status'); donor = ds?.[0] || null; } catch {}
   const fmt = (x) => new Date(x + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -229,7 +229,7 @@ async function home(u) {
     : listings.length ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Become a NHYIAMU Supporter</b><br><span class="muted">Donate GH₵ ${Number(donor.supporter_min)} or more to the projects of MEYE CATHOLIC ASOREBA and your business is recommended to visitors for a year. GH₵ ${Number(donor.flyer_min)} or more also gives you free event flyers.${Number(donor.total_12m) > 0 ? ` You have given GH₵ ${Number(donor.total_12m)} this year — thank you!` : ''}</span> <a href="#/donate">How to donate</a></div>` : '';
   const { data: myApp } = await db.from('team_applications').select('role_wanted,status').eq('user_id', u.id).maybeSingle();
   const APP_MSG = { new: 'received. The regional coordinator will call you soon.', checking: 'being checked. The coordinator is speaking with your pastor or guarantor.', accepted: 'accepted. Welcome to the team!', declined: 'not successful this time. Thank you for applying.' };
-  const appPanel = myApp ? `<div class="panel" style="margin-bottom:16px"><b>Your application to join the team</b> (${esc(ROLE_WANT[myApp.role_wanted])}) has been ${APP_MSG[myApp.status]} ${['new', 'checking'].includes(myApp.status) ? '<a href="#/me/join">View or edit</a>' : ''}</div>` : '';
+  const appPanel = myApp ? `<div class="panel" style="margin-bottom:16px"><b>Your application to join the team</b> (${esc(ROLE_WANT_ALL[myApp.role_wanted])}) has been ${APP_MSG[myApp.status]} ${['new', 'checking'].includes(myApp.status) ? '<a href="#/me/join">View or edit</a>' : ''}</div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
     <div class="row-list">${listings.map((l) => {
@@ -241,8 +241,8 @@ async function home(u) {
           <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding">Founding</span>' : ''}</div></div>
         ${l.status === 'rejected' && l.reject_reason ? `<div class="notice error">Not approved: ${esc(l.reject_reason)}. Please fix and submit again.</div>` : ''}
         ${l.status === 'draft' ? '<div class="notice">Draft — not visible yet. Submit it when you are ready.</div>' : ''}
-        ${l.pending_contact ? `<div class="notice" style="background:var(--gold-soft)">New number ${esc(localPhone(l.pending_contact.phone))} is waiting for a moderator to check it.</div>` : ''}
-        ${l.status === 'pending' ? '<div class="notice" style="background:var(--gold-soft)">Waiting for a moderator to check it (usually within 48 hours).</div>' : ''}
+        ${l.pending_contact ? `<div class="notice" style="background:var(--gold-soft)">New number ${esc(localPhone(l.pending_contact.phone))} is waiting for our team to check it.</div>` : ''}
+        ${l.status === 'pending' ? '<div class="notice" style="background:var(--gold-soft)">Waiting for our team to check it (usually within 48 hours).</div>' : ''}
         ${l.status === 'live' ? `<span class="muted" style="font-size:.88rem">Last 30 days: ${count(l.id, 'view')} views · ${count(l.id, 'whatsapp')} WhatsApp taps · ${count(l.id, 'call')} call taps</span>` : ''}
         ${l.status === 'live' && stale(l) ? '<div class="notice" style="background:var(--gold-soft)">Are your details still correct? Please confirm so visitors know your listing is up to date.</div>' : ''}
         <div class="row-actions">
@@ -262,7 +262,7 @@ async function home(u) {
   document.querySelectorAll('[data-submit]').forEach((b) => b.addEventListener('click', async () => {
     const { error } = await db.from('listings').update({ status: 'pending' }).eq('id', b.dataset.submit);
     if (error) return fail(error, 'Submitting');
-    toast('Submitted. A moderator will check it soon.'); home(u);
+    toast('Submitted. Our team will check it soon.'); home(u);
   }));
   document.querySelectorAll('[data-confirm]').forEach((b) => b.addEventListener('click', async () => {
     const { error } = await db.from('listings').update({ last_confirmed_at: new Date().toISOString() }).eq('id', b.dataset.confirm);
@@ -335,7 +335,7 @@ async function editor(u, id, asAgent) {
   shell(u, asAgent ? 'register' : 'home', title, `
   ${agentMode && isNew ? '<div class="notice" style="margin-bottom:12px">Fill this in <b>with the supplier present</b>, using their details. The listing will be credited to you.</div>' : ''}
   ${l?.status === 'rejected' && l.reject_reason ? `<div class="notice error" style="margin-bottom:12px">Not approved: ${esc(l.reject_reason)}</div>` : ''}
-  ${l?.pending_contact ? `<div class="notice" style="margin-bottom:12px;background:var(--gold-soft)">Your new number (${esc(localPhone(l.pending_contact.phone))}${l.pending_contact.whatsapp !== l.pending_contact.phone ? `, WhatsApp ${esc(localPhone(l.pending_contact.whatsapp))}` : ''}) is waiting for a moderator to check it. Until then visitors still see ${esc(localPhone(l.phone))}.</div>` : ''}
+  ${l?.pending_contact ? `<div class="notice" style="margin-bottom:12px;background:var(--gold-soft)">Your new number (${esc(localPhone(l.pending_contact.phone))}${l.pending_contact.whatsapp !== l.pending_contact.phone ? `, WhatsApp ${esc(localPhone(l.pending_contact.whatsapp))}` : ''}) is waiting for our team to check it. Until then visitors still see ${esc(localPhone(l.phone))}.</div>` : ''}
   <form class="form" id="ed" style="max-width:760px">
     <fieldset><legend>The business</legend>
       <div class="field"><label for="e-name">Business name</label><input type="text" id="e-name" required maxlength="80" value="${v('business_name')}"></div>
@@ -460,7 +460,7 @@ async function editor(u, id, asAgent) {
       }
       clearMe();
       const numberChanged = !isNew && ['live', 'suspended'].includes(l.status) && (phone !== l.phone || whatsapp !== l.whatsapp) && (phone !== l.pending_contact?.phone || whatsapp !== l.pending_contact?.whatsapp);
-      toast(action === 'submit' ? 'Saved and submitted for review.' : numberChanged ? 'Saved. Your new number will show once a moderator checks it.' : 'Saved.');
+      toast(action === 'submit' ? 'Saved and submitted for review.' : numberChanged ? 'Saved. Your new number will show once our team checks it.' : 'Saved.');
       if (isNew) go(`/me/edit/${listingId}`); else editor(u, listingId, asAgent);
     } catch (err) {
       msg.innerHTML = `<div class="notice error">Could not save: ${esc(err.message)}</div>`;
@@ -543,10 +543,10 @@ async function getSettings() {
 }
 function payNote(st) {
   const price = st.flyer_price ? `GH₵ ${esc(st.flyer_price)}` : 'the weekly fee';
-  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week. After you send the flyer, pay online here with MoMo or card. A moderator checks the flyer, then it goes live for 7 days. NHYIAMU staff never collect cash for flyers.`;
+  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week. After you send the flyer, pay online here with MoMo or card. Our team checks the flyer, then it goes live for 7 days. NHYIAMU staff never collect cash for flyers.`;
   return st.momo_number
-    ? `To publish, pay <b>${price}</b> by Mobile Money to <b>${esc(st.momo_number)}</b>${st.momo_name ? ` (${esc(st.momo_name)})` : ''}, using your phone number as the reference. A moderator checks the payment and the flyer, then it goes live for 7 days.`
-    : `The fee is <b>${price}</b> per week. A moderator will contact you on WhatsApp to arrange payment, then your flyer goes live for 7 days.`;
+    ? `To publish, pay <b>${price}</b> by Mobile Money to <b>${esc(st.momo_number)}</b>${st.momo_name ? ` (${esc(st.momo_name)})` : ''}, using your phone number as the reference. Our team checks the payment and the flyer, then it goes live for 7 days.`
+    : `The fee is <b>${price}</b> per week. Our team will contact you on WhatsApp to arrange payment, then your flyer goes live for 7 days.`;
 }
 
 async function flyerForm(u, id) {
@@ -576,7 +576,7 @@ async function flyerForm(u, id) {
   }
   const needsPay = (m) => CFG.paystackKey && !paidPlan && m.status !== 'approved' && !m.payment_ref;
   shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
-    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place, or you are a donor of GH₵ ' + esc(st.donor_flyer_min || '100') + '+ this year. Thank you! A moderator just checks the flyer, then it goes live for 7 days.' : payNote(st) + ` <a href="#/donate">Donors of GH₵ ${esc(st.donor_flyer_min || '100')} or more</a> post flyers free for a year.`}</div>
+    <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place, or you are a donor of GH₵ ' + esc(st.donor_flyer_min || '100') + '+ this year. Thank you! Our team just checks the flyer, then it goes live for 7 days.' : payNote(st) + ` <a href="#/donate">Donors of GH₵ ${esc(st.donor_flyer_min || '100')} or more</a> post flyers free for a year.`}</div>
     ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
     ${limitHit ? `<div class="notice" style="margin-bottom:14px;max-width:760px;background:var(--gold-soft)"><b>You have posted ${LIMIT} flyers in the last ${Math.round(DAYS / 30)} months</b>, which is the limit for personal accounts. You can post your next flyer from <b>${limitHit.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</b>.<br><span class="muted">Event centres and event planners listed on NHYIAMU, suppliers with a Top spot, Featured or Founding place, and donors of GH₵ ${esc(st.donor_flyer_min || '100')}+ have no limit.</span></div>` : ''}
     <form class="form" id="fl" style="max-width:760px"${limitHit ? ' hidden' : ''}>
@@ -609,7 +609,7 @@ async function flyerForm(u, id) {
       <div class="row-top"><div><b>${esc(m.title)}</b><br><span class="muted">${esc(m.towns?.name || '')} · event ${new Date(m.event_date + 'T12:00:00').toLocaleDateString('en-GB')}</span></div>${statusBadge(m.status === 'approved' ? 'live' : m.status)}</div>
       ${m.status === 'approved' && m.ends_on ? `<span class="muted">Showing until ${new Date(m.ends_on + 'T12:00:00').toLocaleDateString('en-GB')}</span>` : ''}
       ${m.status === 'rejected' && m.reject_reason ? `<div class="notice error">${esc(m.reject_reason)}</div>` : ''}
-      ${needsPay(m) ? '<span class="muted">Not paid yet — pay to send it for checking.</span>' : m.status === 'pending' && m.payment_ref ? '<span class="muted">Paid ✓ — waiting for a moderator.</span>' : ''}
+      ${needsPay(m) ? '<span class="muted">Not paid yet — pay to send it for checking.</span>' : m.status === 'pending' && m.payment_ref ? '<span class="muted">Paid ✓ — waiting for our team.</span>' : ''}
       <div class="row-actions">${needsPay(m) ? `<button class="btn btn-gold" data-payfly="${m.id}">Pay ${esc(st.flyer_price ? 'GH₵ ' + st.flyer_price : '')} now</button>` : ''}<a class="btn btn-ghost" href="#/f/${m.id}">View</a>${m.status !== 'approved' ? `<a class="btn btn-ghost" href="#/me/flyer/${m.id}">Edit</a>` : ''}</div></div>`).join('')}</div>` : ''}`);
   document.querySelectorAll('[data-payfly]').forEach((b) => b.addEventListener('click', () => payOnline({ p_kind: 'flyer', p_flyer: b.dataset.payfly }, () => flyerForm(u))));
 
@@ -640,7 +640,7 @@ async function flyerForm(u, id) {
         if (location.hash !== '#/me/flyer') go('/me/flyer'); else flyerForm(u);
         return payOnline({ p_kind: 'flyer', p_flyer: saved.id }, () => flyerForm(u));
       }
-      toast('Flyer sent. A moderator will check it soon.');
+      toast('Flyer sent. Our team will check it soon.');
       if (location.hash === '#/me/flyer') flyerForm(u); else go('/me/flyer');
     } catch (err) {
       msg.innerHTML = `<div class="notice error">Could not send: ${esc(err.message)}</div>`;
@@ -825,8 +825,8 @@ async function tally(u, params) {
     const rows = ce || [];
     const total = rows.reduce((s, r) => s + Number(r.earnings), 0);
     document.getElementById('coord-earn').innerHTML = `<h2 style="margin-top:26px">${u.role === 'admin' ? 'Regional coordinator pay' : 'My pay as coordinator'}</h2>
-      <p class="muted" style="margin-top:-4px">10% of the region's income this month: paid places bought in its towns and flyer fees for events held there. Payments from suppliers the coordinator registered personally are left out here, because the coordinator earns agent commission on those instead. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
-      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Region</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Region income</th><th>Pay (10%)</th><th>Live suppliers registered by</th></tr></thead><tbody>
+      <p class="muted" style="margin-top:-4px">15% of the region's income this month: paid places bought in its towns and flyer fees for events held there. Payments from suppliers the coordinator registered personally are left out here, because the coordinator earns agent commission on those instead. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Region</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Region income</th><th>Pay (15%)</th><th>Live suppliers registered by</th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${esc(r.region_name)}</td><td>${r.coordinator_id ? `<b>${esc(r.coordinator_name || '—')}</b><br><span class="muted">${esc(r.coordinator_email || '')}</span>` : '<span class="muted">No coordinator</span>'}</td>
         <td>${cedi(r.place_income)}</td><td>${cedi(r.flyer_income)}</td><td>${cedi(r.total_income)}</td><td><b>${r.coordinator_id ? cedi(r.earnings) : '—'}</b></td>
         <td>${r.coordinator_id ? `Coordinator: <b>${r.self_registered}</b><br>Agents: <b>${r.agents_registered}</b>${Number(r.self_registered) > Number(r.agents_registered) && Number(r.self_registered) >= 5 ? '<br><span class="badge" style="background:#f6e4e2;color:var(--red)">Check: coordinator keeps most</span>' : ''}` : '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No regional income or coordinators this month.</td></tr>'}
@@ -838,7 +838,7 @@ async function tally(u, params) {
 async function reviewQueue(u) {
   shell(u, 'review', 'Pending review', '<div class="skeleton"></div>');
   const { data, error } = await db.from('listings')
-    .select('id,slug,business_name,description,phone,whatsapp,landmark,created_at,registered_by,consent_given,towns(name),listing_photos(path,sort),listing_categories(categories(name)),profiles!listings_owner_id_fkey(full_name,email)')
+    .select('id,slug,business_name,description,phone,whatsapp,landmark,created_at,registered_by,owner_id,consent_given,towns(name),listing_photos(path,sort),listing_categories(categories(name)),profiles!listings_owner_id_fkey(full_name,email)')
     .eq('status', 'pending').order('created_at');
   if (error) return fail(error, 'Loading the queue');
   document.getElementById('dash').innerHTML = `<h2>Listings waiting</h2><p class="muted">Check each listing looks real: sensible name, photos of real work, a working phone number. Oldest first.</p>
@@ -851,12 +851,12 @@ async function reviewQueue(u) {
       <div style="font-size:.92rem">${esc(l.description)}</div>
       <div class="muted" style="font-size:.88rem">📞 ${esc(localPhone(l.phone))} · WhatsApp ${esc(localPhone(l.whatsapp))} · ${esc(l.landmark)}</div>
       ${ph.length ? `<div class="photos">${ph.slice(0, 5).map((p) => `<div class="photo"><img src="${esc(photoUrl(p.path))}" alt="" loading="lazy"></div>`).join('')}</div>` : '<span class="hint">No photos yet.</span>'}
-      <div class="row-actions">
+      ${u.role === 'coordinator' && (l.registered_by === u.id || l.owner_id === u.id) ? '<div class="notice">You registered this listing, so the admin checks and approves it.</div>' : `<div class="row-actions">
         <button class="btn" data-approve="${l.id}">Approve</button>
         <a class="btn btn-ghost" href="#/me/edit/${l.id}">Edit</a>
         <a class="btn btn-ghost" href="#/l/${esc(l.slug)}">Preview</a>
       </div>
-      <form class="filters" data-reject="${l.id}"><input type="text" required placeholder="Reason, e.g. please add photos of your work"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>
+      <form class="filters" data-reject="${l.id}"><input type="text" required placeholder="Reason, e.g. please add photos of your work"><button class="btn btn-ghost btn-small" type="submit">Send back</button></form>`}
     </div>`; }).join('') : '<div class="empty"><p class="muted" style="margin:0">No listings waiting for review.</p></div>'}</div><div id="contact-queue"></div><div id="flyer-queue"></div>`;
   contactQueue(document.getElementById('contact-queue'), u);
   flyerQueue(document.getElementById('flyer-queue'), u);
@@ -915,7 +915,7 @@ async function reportsQueue(u) {
     ${r.reviews ? `<div class="muted">Review: "${esc(r.reviews.comment || '')}"</div>` : ''}
     <div class="row-actions">
       ${r.listings ? (r.listings.status === 'suspended' ? `<button class="btn btn-ghost" data-status="live" data-listing="${r.listings.id}">Restore listing</button>` : `<button class="btn btn-ghost" data-status="suspended" data-listing="${r.listings.id}">Suspend listing</button>`) : ''}
-      ${r.reviews && STAFF.includes(u.role) ? `<button class="btn btn-ghost" data-hide="${r.reviews.id}">Hide review</button>` : ''}
+      ${r.reviews && [...STAFF, 'coordinator'].includes(u.role) ? `<button class="btn btn-ghost" data-hide="${r.reviews.id}">Hide review</button>` : ''}
       <button class="btn" data-resolve="${r.id}" data-s="resolved">Resolved</button>
       <button class="btn btn-ghost" data-resolve="${r.id}" data-s="dismissed">Dismiss</button>
     </div></div>`).join('') : '<div class="empty"><p class="muted" style="margin:0">No open reports.</p></div>'}</div>`;
@@ -1372,7 +1372,8 @@ async function promotePage(u, listingId) {
   });
 }
 
-const ROLE_WANT = { agent: 'Field agent', moderator: 'Moderator', coordinator: 'Regional coordinator' };
+const ROLE_WANT = { agent: 'Field agent', coordinator: 'Regional coordinator' };
+const ROLE_WANT_ALL = { ...ROLE_WANT, moderator: 'Moderator' };
 const WORK = { unemployed: 'Unemployed', student: 'Student / just finished school', part_time: 'Part-time work', employed: 'Employed' };
 
 async function joinForm(u) {
@@ -1469,12 +1470,12 @@ async function applications(u, params) {
   const wa = (p, text) => `https://wa.me/${String(p).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`;
   const tabs = [['open', 'To check'], ['accepted', 'Accepted'], ['declined', 'Declined']];
   document.getElementById('dash').innerHTML = `
-    <p class="muted" style="max-width:760px">${u.role === 'coordinator' ? 'Applicants from your region who want to be field agents or moderators.' : 'All applications. Coordinators handle field agents and moderators in their regions; applications to be a coordinator, and regions without a coordinator, are yours.'} Call the applicant, then their pastor or guarantor, before accepting.</p>
+    <p class="muted" style="max-width:760px">${u.role === 'coordinator' ? 'Applicants from your region who want to be field agents.' : 'All applications. Coordinators handle field agents in their regions; applications to be a coordinator, and regions without a coordinator, are yours.'} Call the applicant, then their pastor or guarantor, before accepting.</p>
     <div class="filters" style="margin-bottom:12px">${tabs.map(([k, t]) => `<a class="btn btn-small ${k === st ? '' : 'btn-ghost'}" href="#/me/apps?s=${k}">${t}</a>`).join('')}</div>
     <div class="row-list">${(data || []).map((a) => {
       const town = REF.townById[a.town_id];
       return `<div class="row app-card">
-        <div class="row-top"><div><b>${esc(a.full_name)}</b> · ${esc(ROLE_WANT[a.role_wanted])}<br><span class="muted">${esc(town?.name || '')}${town ? ', ' + esc(regionOf(town)) : ''} · applied ${new Date(a.created_at).toLocaleDateString('en-GB')}</span></div><span class="status status-${esc(a.status)}">${esc(a.status)}</span></div>
+        <div class="row-top"><div><b>${esc(a.full_name)}</b> · ${esc(ROLE_WANT_ALL[a.role_wanted])}<br><span class="muted">${esc(town?.name || '')}${town ? ', ' + esc(regionOf(town)) : ''} · applied ${new Date(a.created_at).toLocaleDateString('en-GB')}</span></div><span class="status status-${esc(a.status)}">${esc(a.status)}</span></div>
         <dl class="kv">
           <dt>Work now</dt><dd>${esc(WORK[a.work_status])}${a.education ? ' · ' + esc(a.education) : ''}${a.languages ? ' · ' + esc(a.languages) : ''}${a.has_smartphone ? '' : ' · <b>no smartphone</b>'}</dd>
           ${a.motivation ? `<dt>Why</dt><dd>${esc(a.motivation)}</dd>` : ''}
