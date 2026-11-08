@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=47';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=48';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -443,7 +443,7 @@ async function editor(u, id, asAgent) {
         <div class="field"><label for="e-tt">TikTok</label><input type="text" id="e-tt" value="${esc(l?.socials?.tiktok || '')}"></div>
       </div>
     </fieldset>
-    ${agentMode && isNew ? '<label class="check" style="white-space:normal"><input type="checkbox" id="e-consent" required> The supplier agrees to be listed on YAHYIAM with these details</label>' : ''}
+    ${agentMode && isNew ? '<label class="check" style="white-space:normal"><input type="checkbox" id="e-consent" required> The supplier agrees to be listed on YAHYIAM with these details</label><div class="notice" style="background:var(--gold-soft)"><b>Tell the supplier:</b> listing is free and they must never pay you cash. Any paid place is paid online from their own account. They may give you a tip if they wish, but never ask for one.</div>' : ''}
     <fieldset><legend>Photos</legend>
       ${isNew ? '<p class="muted" style="margin:0">Save first, then you can add up to 10 photos of your work.</p>' : `
       <div class="photos" id="photos">${photos.map((p) => `<div class="photo"><img src="${esc(photoUrl(p.path))}" alt=""><button type="button" data-del="${p.id}" data-path="${esc(p.path)}" aria-label="Remove photo">×</button></div>`).join('')}</div>
@@ -1370,7 +1370,7 @@ async function recheckMyPayments(u) {
   }
   return changed;
 }
-const NO_CASH = '<div class="notice" style="background:var(--gold-soft)"><b>Pay only on this page.</b> YAHYIAM staff and field agents never collect cash or MoMo for you. If anyone asks you to pay them, please report it.</div>';
+const NO_CASH = `<div class="notice" style="background:var(--gold-soft)"><b>Pay only on this page.</b> ${NO_CASH_TEXT} If anyone asks you to pay them, please report it.</div>`;
 
 async function promotePage(u, listingId) {
   const { data: l } = await db.from('listings').select('id,slug,business_name,status,owner_id,base_town_id,coverage,towns(name,size,districts(name,regions(name))),listing_categories(categories(id,parent_id))').eq('id', listingId).maybeSingle();

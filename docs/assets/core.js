@@ -16,6 +16,7 @@ export const session = {
   get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch {} }
 };
+export const NO_CASH = 'Never pay cash to a YAHYIAM field agent or coordinator. Listing is free, and paid places and flyers are paid online only, from your own account. Our agents are already paid commission by YAHYIAM. If you want to thank an agent with a tip, you are free to do so; it is your choice and never required.';
 export const go = (h) => { location.hash = h; };
 export const cedi = (n) => 'GH₵ ' + Number(n).toLocaleString('en-GH', { maximumFractionDigits: 0 });
 export const UNIT = { per_event: 'per event', per_head: 'per head', per_item: 'per item', per_day: 'per day', per_night: 'per night', per_hour: 'per hour' };

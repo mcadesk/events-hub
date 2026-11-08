@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone } from './core.js?v=47';
-import { SAMPLE_LISTINGS } from './sample.js?v=47';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=48';
+import { SAMPLE_LISTINGS } from './sample.js?v=48';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -43,7 +43,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=47');
+      const dash = await import('./dash.js?v=48');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -550,6 +550,7 @@ function joinPage() {
       <div class="panel"><h3>Field agent</h3><p>Visit event suppliers and market sellers in your town, help them list on YAHYIAM, take photos and verify them.</p><p class="muted"><b>Pay:</b> commission. 50% of the first month when a supplier you registered buys a Top spot or Featured place, then 20% of every later payment.</p></div>
       <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: check applicants, hire and guide field agents, open new towns, and check new listings, flyers and reports from your region on your phone.</p><p class="muted"><b>Pay:</b> 15% of the income from your region every month, plus agent commission on suppliers you register yourself.</p></div>
     </div>
+    <p class="notice" style="background:var(--gold-soft)"><b>Never collect money.</b> Agents and coordinators must never ask suppliers or customers for cash. All payments are made online by the client, and your commission comes from YAHYIAM. A client may choose to give you a tip; you may accept it, but never ask for one.</p>
     <p class="notice" style="background:var(--gold-soft)">All pay is commission. It starts small and grows as more suppliers in your area join and pay for extras. It works best alongside other work or study at first.</p>
     <h2>What you need</h2>
     <ul>
@@ -585,7 +586,7 @@ function listPage() {
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Optional: get seen first</h2>
     <p class="muted">Listing is free. If you want to appear above other suppliers, you can pay for a place at the top of your category. Choose how far you want to be seen: your <b>town</b>, your <b>district</b>, your <b>region</b>, or <b>all of Ghana</b>. Wider places show above town places, and each level has only a few places, shared in daily rotation. Wider levels are for suppliers who really serve that whole area.</p>
-    <p class="muted">You pay online from your own account (MoMo or card) — <b>YAHYIAM staff and field agents never collect money from you</b>. If anyone asks you to pay them in cash, please report it.</p>
+    <div class="notice" style="background:var(--gold-soft)"><b>No cash to agents.</b> ${NO_CASH} If anyone asks you to pay them in cash, please report it.</div>
     <div id="prices" class="panel">Loading…</div>
   </div>`;
   db.from('place_prices').select('level,position,monthly,slots').then(({ data }) => {
