@@ -10,5 +10,5 @@ window.EVENTS_HUB = {
   mcaSite: 'https://claude.ai/artifact/SLWAVsm3bgUUfsCn16GKuX',
   defaultTown: 'ejisu-besease',
   // Turn on after Google sign-in is set up in Supabase (Authentication → Providers → Google)
-  googleSignIn: false
+  googleSignIn: true
 };
