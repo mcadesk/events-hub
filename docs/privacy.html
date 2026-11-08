@@ -8,7 +8,19 @@
   <style>
     body { margin: 0; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; color: #1c2333; background: #f7f8fb; }
     header { background: #011B59; color: #fff; padding: 14px 20px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     header a { color: #fff; text-decoration: none; font-weight: 700; letter-spacing: .04em; }
+    header .back { font-weight: 600; letter-spacing: 0; font-size: .95rem; opacity: .9; }
+    .end { margin-top: 32px; padding: 20px; border-radius: 14px; background: #fff; border: 1px solid #e2e6ee; }
+    .end h2 { margin-top: 0; }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .btn { display: inline-block; padding: 10px 16px; border-radius: 10px; text-decoration: none; font-weight: 700; }
+    .btn.primary { background: #FDB101; color: #011B59; }
+    .btn.ghost { border: 1px solid #c9d1e0; color: #011B59; }
+    footer { background: #011B59; color: #d9e0f0; padding: 24px 20px; font-size: .92rem; }
+    footer .in { max-width: 760px; margin: 0 auto; display: grid; gap: 10px; }
+    footer a { color: #FDB101; text-decoration: none; }
+    footer nav { display: flex; flex-wrap: wrap; gap: 8px 16px; }
     main { max-width: 760px; margin: 0 auto; padding: 24px 20px 60px; }
     h1 { font-size: 1.8rem; margin: 8px 0 4px; }
     h2 { font-size: 1.2rem; margin: 28px 0 6px; }
@@ -17,7 +29,7 @@
   </style>
 </head>
 <body>
-  <header><a href="./">YAHYIAM</a></header>
+  <header><a href="./">YAHYIAM</a><a class="back" href="./">← Back to the site</a></header>
   <main>
     <h1>Privacy and terms</h1>
     <p class="muted">Last updated 8 November 2026. YAHYIAM (yahyiam.mcadesk.org) is a free directory of event suppliers in Ghana, run as a project of MEYE CATHOLIC ASOREBA.</p>
@@ -51,7 +63,22 @@
     <h2>Rights to photos and media</h2>
     <p>YAHYIAM does not own the rights to the media used on this site. Category photos are free images from <a href="https://unsplash.com">Unsplash</a>. Photos, flyers and logos on listings belong to the suppliers and event hosts who posted them; by posting, they confirm they may share them and allow YAHYIAM to show them on the site. To ask for an image to be removed, email us.</p>
 
-    <p class="muted">Questions: <a href="mailto:meyecatholicasoreba@gmail.com">meyecatholicasoreba@gmail.com</a></p>
+    <div class="end">
+      <h2>Questions or concerns?</h2>
+      <p>Email <a href="mailto:meyecatholicasoreba@gmail.com">meyecatholicasoreba@gmail.com</a> or message us on <a href="https://wa.me/233535183013" target="_blank" rel="noopener">WhatsApp</a>. If an agent asks you for cash, or you see a fake listing, please tell us.</p>
+      <div class="btns">
+        <a class="btn primary" href="./">Find event suppliers</a>
+        <a class="btn ghost" href="./#/list">List your business free</a>
+        <a class="btn ghost" href="./#/join">Join our team</a>
+      </div>
+    </div>
   </main>
+  <footer>
+    <div class="in">
+      <nav><a href="./">Home</a><a href="./#/list">List your business</a><a href="./#/finance">Event loans</a><a href="./#/permits">Permits guide</a><a href="./#/donate">Donate</a><a href="./#/join">Join our team</a><a href="./#/about">About</a></nav>
+      <div>YAHYIAM is a project of <a href="https://claude.ai/artifact/SLWAVsm3bgUUfsCn16GKuX" target="_blank" rel="noopener">MEYE CATHOLIC ASOREBA</a>.</div>
+      <div><b>Rights notice:</b> YAHYIAM does not own the rights to the media used on this site. Category photos are free images from <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>; photos, flyers and logos on listings belong to the suppliers and event hosts who posted them.</div>
+    </div>
+  </footer>
 </body>
 </html>
