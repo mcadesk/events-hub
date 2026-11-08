@@ -1,10 +1,10 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone } from './core.js?v=44';
-import { SAMPLE_LISTINGS } from './sample.js?v=44';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone } from './core.js?v=45';
+import { SAMPLE_LISTINGS } from './sample.js?v=45';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
-const waLink = (l) => `https://wa.me/${waNumber(l.whatsapp)}?text=${encodeURIComponent(`Hello ${l.business_name}, I found you on NHYIAMU. I'd like to ask about your services for an event.`)}`;
+const waLink = (l) => `https://wa.me/${waNumber(l.whatsapp)}?text=${encodeURIComponent(`Hello ${l.business_name}, I found you on YAHYIAM. I'd like to ask about your services for an event.`)}`;
 const isDemo = () => session.get('eh-demo') === '1';
 const setDemo = (on) => { session.set('eh-demo', on ? '1' : null); document.getElementById('demo-banner').hidden = !on; };
 
@@ -43,7 +43,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=44');
+      const dash = await import('./dash.js?v=45');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -71,7 +71,7 @@ document.getElementById('demo-off').addEventListener('click', () => { setDemo(fa
 function home() {
   const saved = store.get('eh-town', CFG.defaultTown);
   const town = REF.townBySlug[saved] ? saved : (REF.townBySlug[CFG.defaultTown] ? CFG.defaultTown : REF.towns[0]?.slug);
-  document.title = 'NHYIAMU — find everything for your event';
+  document.title = 'YAHYIAM — find everything for your event';
   app.innerHTML = `
   <section class="hero" style="--hero-img:url('${catPhoto('hero', 1400, 800)}')"><div class="wrap">
     <h1>Everything for your event, in one place</h1>
@@ -101,12 +101,12 @@ function home() {
     <div class="how">
       <div class="panel"><b>1. Pick your town</b>See suppliers based there, plus those who travel to you.</div>
       <div class="panel"><b>2. Compare</b>Photos, price ranges, reviews and verified badges.</div>
-      <div class="panel"><b>3. WhatsApp or call</b>Agree everything directly with the supplier. NHYIAMU is free.</div>
+      <div class="panel"><b>3. WhatsApp or call</b>Agree everything directly with the supplier. YAHYIAM is free.</div>
     </div>
   </div></section>
 
   <section class="section" style="padding-bottom:0"><div class="wrap">
-    <div class="donate-band"><div><b>NHYIAMU is free for everyone.</b> If it helps you, please consider donating towards the projects of MEYE CATHOLIC ASOREBA.</div><a class="btn btn-small btn-gold" href="#/donate">Donate</a></div>
+    <div class="donate-band"><div><b>YAHYIAM is free for everyone.</b> If it helps you, please consider donating towards the projects of MEYE CATHOLIC ASOREBA.</div><a class="btn btn-small btn-gold" href="#/donate">Donate</a></div>
   </div></section>
 
   <section class="section"><div class="wrap">
@@ -136,7 +136,7 @@ async function townPage(townSlug) {
   const town = REF.townBySlug[townSlug];
   if (!town) return notFound();
   store.set('eh-town', town.slug);
-  document.title = `Event suppliers in ${town.name} — NHYIAMU`;
+  document.title = `Event suppliers in ${town.name} — YAHYIAM`;
   app.innerHTML = `<div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › ${esc(town.name)}</div>
     <h1>Event suppliers in ${esc(town.name)}</h1>
@@ -179,7 +179,7 @@ async function results(townSlug, catSlug, params) {
   const sub = params.get('sub') || '';
   const subs = cat ? REF.cats.filter((c) => c.parent_id === cat.id) : [];
   const title = cat ? cat.name : 'All suppliers';
-  document.title = `${title} in ${town.name} — NHYIAMU`;
+  document.title = `${title} in ${town.name} — YAHYIAM`;
 
   const qs = (over = {}) => {
     const p = new URLSearchParams({ scope, ...(verified ? { v: '1' } : {}), ...(q ? { q } : {}), ...(sub ? { sub } : {}) });
@@ -218,7 +218,7 @@ async function results(townSlug, catSlug, params) {
   document.getElementById('r-note').textContent = {
     area: `Suppliers based in ${town.name}, plus those who travel here.`,
     region: `Suppliers across the ${regionOf(town)} Region, nearest first.`,
-    all: 'Every supplier on NHYIAMU, nearest first.'
+    all: 'Every supplier on YAHYIAM, nearest first.'
   }[scope] || '';
 
   const filterCat = sub ? REF.catBySlug[sub] : cat;
@@ -245,7 +245,7 @@ async function results(townSlug, catSlug, params) {
     if (first) list.innerHTML = '';
     if (first && rows.length === 0) {
       list.outerHTML = `<div class="empty" id="r-list"><h3>${cat ? `No ${esc(title.toLowerCase())} listed here yet` : (q || verified ? 'No suppliers match your search' : 'No suppliers listed here yet')}</h3>
-        <p class="muted">${scope === 'area' ? `Try <b>${esc(regionOf(town))}</b> or <b>All suppliers</b> above to see suppliers further away.` : 'NHYIAMU is new — suppliers are being added every week.'}</p>
+        <p class="muted">${scope === 'area' ? `Try <b>${esc(regionOf(town))}</b> or <b>All suppliers</b> above to see suppliers further away.` : 'YAHYIAM is new — suppliers are being added every week.'}</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <a class="btn" href="#/list">Know a supplier? Tell them to list free</a>
           ${isDemo() ? '' : '<button class="btn btn-ghost" id="demo-on">Preview with sample listings</button>'}
@@ -310,7 +310,7 @@ async function listingPage(slug) {
   }
   if (!l) return notFound('This listing could not be found. It may have been removed.');
   if (l.owner_id && !isDemo()) { try { const { data: sup } = await db.rpc('is_supporter', { p_user: l.owner_id }); l.supporter = !!sup; } catch {} }
-  document.title = `${l.business_name} — NHYIAMU`;
+  document.title = `${l.business_name} — YAHYIAM`;
   logTap(l.id, 'view');
 
   const ratings = l.reviews.map((r) => r.rating);
@@ -337,8 +337,8 @@ async function listingPage(slug) {
       <div>
         <h1 style="margin-top:6px">${esc(l.business_name)}</h1>
         <div class="badges" style="margin-bottom:10px">
-          ${l.verified ? '<span class="badge badge-verified">✓ Verified by NHYIAMU</span>' : ''}
-          ${l.supporter ? '<span class="badge badge-supporter" title="Has donated to the projects of MEYE CATHOLIC ASOREBA">♥ NHYIAMU Supporter</span>' : ''}
+          ${l.verified ? '<span class="badge badge-verified">✓ Verified by YAHYIAM</span>' : ''}
+          ${l.supporter ? '<span class="badge badge-supporter" title="Has donated to the projects of MEYE CATHOLIC ASOREBA">♥ YAHYIAM Supporter</span>' : ''}
           ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
           ${l.categories.map((c) => `<span class="badge">${esc(c.name)}</span>`).join('')}
         </div>
@@ -453,20 +453,20 @@ async function listingPage(slug) {
     logTap(l.id, 'share');
     const url = location.href;
     try {
-      if (navigator.share) await navigator.share({ title: l.business_name, text: `${l.business_name} on NHYIAMU`, url });
+      if (navigator.share) await navigator.share({ title: l.business_name, text: `${l.business_name} on YAHYIAM`, url });
       else { await navigator.clipboard.writeText(url); e.target.textContent = 'Link copied ✓'; }
     } catch {}
   });
 }
 
 async function financePage() {
-  document.title = 'Finance your event — NHYIAMU';
+  document.title = 'Finance your event — YAHYIAM';
   const { data: partners } = await db.from('loan_partners').select('id,name,phone,email,towns,products').eq('active', true).order('name');
   const town = store.get('eh-town', CFG.defaultTown);
   app.innerHTML = `<div class="wrap section">
     ${banner('finance', 'Finance your event')}
     <p class="muted prose">Need help paying for a wedding, funeral or celebration? Our partner credit unions, banks and savings &amp; loans offer event loans. Send one enquiry and the partner will contact you.</p>
-    <div class="notice" style="margin:14px 0">Loans are offered and approved by the partner institution alone. NHYIAMU is not a lender and never handles your money.</div>
+    <div class="notice" style="margin:14px 0">Loans are offered and approved by the partner institution alone. YAHYIAM is not a lender and never handles your money.</div>
     ${partners && partners.length ? `
       <div class="results" style="margin-bottom:24px">${partners.map((p) => `<div class="panel partner"><h3>${esc(p.name)}</h3>
         ${p.towns ? `<span class="muted">Branches: ${esc(p.towns)}</span>` : ''}
@@ -509,7 +509,7 @@ async function financePage() {
 }
 
 function permitsPage() {
-  document.title = 'Event permits guide — NHYIAMU';
+  document.title = 'Event permits guide — YAHYIAM';
   app.innerHTML = `<div class="wrap section prose">
     ${banner('permits', 'Event permits guide')}
     <p class="muted">For public events anywhere in Ghana. Small private events at home or in a hall usually need fewer of these — ask the venue.</p>
@@ -525,29 +525,29 @@ function permitsPage() {
 }
 
 function aboutPage() {
-  document.title = 'About NHYIAMU';
+  document.title = 'About YAHYIAM';
   app.innerHTML = `<div class="wrap section prose">
-    ${banner('about', 'About NHYIAMU')}
-    <p>NHYIAMU is a free directory that helps families, churches, schools and businesses across Ghana find everything they need for an event — and helps local suppliers get found.</p>
-    <p>NHYIAMU is a project of <a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener"><b>MEYE CATHOLIC ASOREBA</b></a>, a Catholic group in Ghana that proclaims the faith in Asante Twi. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers.</p>
+    ${banner('about', 'About YAHYIAM')}
+    <p>YAHYIAM is a free directory that helps families, churches, schools and businesses across Ghana find everything they need for an event — and helps local suppliers get found.</p>
+    <p>YAHYIAM is a project of <a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener"><b>MEYE CATHOLIC ASOREBA</b></a>, a Catholic group in Ghana that proclaims the faith in Asante Twi. Listing is free for every supplier. Optional featured listings pay the local team who visit and verify suppliers.</p>
     <h2>Where the money goes</h2>
-    <p>Money left after running NHYIAMU supports the projects and foundation programmes of MEYE CATHOLIC ASOREBA.</p>
+    <p>Money left after running YAHYIAM supports the projects and foundation programmes of MEYE CATHOLIC ASOREBA.</p>
     <p><a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener">Visit the MEYE CATHOLIC ASOREBA website ↗</a> to learn about the mission and its projects.</p>
-    <div class="cta-band" style="margin-top:14px"><div><b>NHYIAMU is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
+    <div class="cta-band" style="margin-top:14px"><div><b>YAHYIAM is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
     <h2>Work with us</h2>
-    <p>NHYIAMU is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
+    <p>YAHYIAM is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
   </div>`;
 }
 
 function joinPage() {
-  document.title = 'Join the NHYIAMU team';
+  document.title = 'Join the YAHYIAM team';
   app.innerHTML = `<div class="wrap section prose">
-    ${banner('about', 'Join the NHYIAMU team')}
-    <p>NHYIAMU is built by local people in every town. We give <b>priority to people who are unemployed</b>, so that the site creates work as it grows.</p>
+    ${banner('about', 'Join the YAHYIAM team')}
+    <p>YAHYIAM is built by local people in every town. We give <b>priority to people who are unemployed</b>, so that the site creates work as it grows.</p>
     <h2>The roles</h2>
     <div class="role-cards">
-      <div class="panel"><h3>Field agent</h3><p>Visit event suppliers and market sellers in your town, help them list on NHYIAMU, take photos and verify them.</p><p class="muted"><b>Pay:</b> commission. 50% of the first month when a supplier you registered buys a Top spot or Featured place, then 20% of every later payment.</p></div>
+      <div class="panel"><h3>Field agent</h3><p>Visit event suppliers and market sellers in your town, help them list on YAHYIAM, take photos and verify them.</p><p class="muted"><b>Pay:</b> commission. 50% of the first month when a supplier you registered buys a Top spot or Featured place, then 20% of every later payment.</p></div>
       <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: check applicants, hire and guide field agents, open new towns, and check new listings, flyers and reports from your region on your phone.</p><p class="muted"><b>Pay:</b> 15% of the income from your region every month, plus agent commission on suppliers you register yourself.</p></div>
     </div>
     <p class="notice" style="background:var(--gold-soft)">All pay is commission. It starts small and grows as more suppliers in your area join and pay for extras. It works best alongside other work or study at first.</p>
@@ -572,20 +572,20 @@ function joinPage() {
 }
 
 function listPage() {
-  document.title = 'List your business free — NHYIAMU';
+  document.title = 'List your business free — YAHYIAM';
   app.innerHTML = `<div class="wrap section prose">
     ${banner('list', 'List your business free')}
-    <p>If you supply anything for events — venues, canopies and chairs, food and drinks, foodstuffs from the market, decor, cloth and sewing, makeup, sound, photos, transport and more — NHYIAMU helps people near you find you and contact you on WhatsApp.</p>
+    <p>If you supply anything for events — venues, canopies and chairs, food and drinks, foodstuffs from the market, decor, cloth and sewing, makeup, sound, photos, transport and more — YAHYIAM helps people near you find you and contact you on WhatsApp.</p>
     <ul>
       <li><b>Free forever</b> for a basic listing with photos, prices and your WhatsApp.</li>
       <li><b>First 10 suppliers in each town</b> get 3 months featured free and a Founding supplier badge.</li>
-      <li><b>Get verified:</b> an NHYIAMU field agent visits you and adds the Verified badge.</li>
+      <li><b>Get verified:</b> an YAHYIAM field agent visits you and adds the Verified badge.</li>
     </ul>
     <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and our team will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Optional: get seen first</h2>
     <p class="muted">Listing is free. If you want to appear above other suppliers, you can pay for a place at the top of your category. Choose how far you want to be seen: your <b>town</b>, your <b>district</b>, your <b>region</b>, or <b>all of Ghana</b>. Wider places show above town places, and each level has only a few places, shared in daily rotation. Wider levels are for suppliers who really serve that whole area.</p>
-    <p class="muted">You pay online from your own account (MoMo or card) — <b>NHYIAMU staff and field agents never collect money from you</b>. If anyone asks you to pay them in cash, please report it.</p>
+    <p class="muted">You pay online from your own account (MoMo or card) — <b>YAHYIAM staff and field agents never collect money from you</b>. If anyone asks you to pay them in cash, please report it.</p>
     <div id="prices" class="panel">Loading…</div>
   </div>`;
   db.from('place_prices').select('level,position,monthly,slots').then(({ data }) => {
@@ -603,7 +603,7 @@ const SCOPE = { national: ' · Ghana-wide', region: ' · Region', district: ' ·
 const LEVEL_NAME = { national: 'National', region: 'Regional', district: 'District', town: 'Town', town_big: 'Town (big towns, e.g. Kumasi)' };
 
 function notFound(msg = 'This page could not be found.') {
-  document.title = 'Not found — NHYIAMU';
+  document.title = 'Not found — YAHYIAM';
   app.innerHTML = `<div class="wrap section"><div class="empty"><h3>Not found</h3><p class="muted">${esc(msg)}</p><a class="btn" href="#/">Go to home page</a></div></div>`;
 }
 
@@ -644,10 +644,10 @@ async function supportersSection(town, el) {
 async function flyerPage(id) {
   const { data: f } = await db.from('flyers').select('*, towns(name,slug,districts(name))').eq('id', id).maybeSingle();
   if (!f) return notFound('This flyer has ended or could not be found.');
-  document.title = `${f.title} — NHYIAMU`;
+  document.title = `${f.title} — YAHYIAM`;
   const mapUrl = f.map_link && /^https?:\/\//.test(f.map_link) ? f.map_link
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${f.venue_name}, ${f.towns.name}, Ghana`)}`;
-  const wa = `https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello, I saw your flyer "${f.title}" on NHYIAMU.`)}`;
+  const wa = `https://wa.me/${String(f.contact_phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello, I saw your flyer "${f.title}" on YAHYIAM.`)}`;
   app.innerHTML = `<div class="wrap section">
     <div class="crumbs" style="margin-top:0"><a href="#/">Home</a> › <a href="#/t/${esc(f.towns.slug)}">${esc(f.towns.name)}</a> › Event</div>
     ${f.status !== 'approved' ? `<div class="notice" style="margin-bottom:12px">This flyer is <b>${esc(f.status)}</b> and only you and our team can see it.${f.reject_reason ? ' Reason: ' + esc(f.reject_reason) : ''}</div>` : ''}
@@ -673,14 +673,14 @@ async function flyerPage(id) {
 
 
 async function donatePage() {
-  document.title = 'Support MEYE CATHOLIC ASOREBA — NHYIAMU';
+  document.title = 'Support MEYE CATHOLIC ASOREBA — YAHYIAM';
   const st = await settings();
   app.innerHTML = `<div class="wrap section prose">
     ${banner('about', 'Support our projects')}
-    <p><b>NHYIAMU is free</b> for everyone looking for event suppliers, and basic listings are free for every supplier.</p>
-    <p>If NHYIAMU has helped you, or you believe in what we do, you are warmly encouraged to donate towards the <b>projects of MEYE CATHOLIC ASOREBA</b>. Every cedi helps.</p>
-    <div class="panel"><h3 style="margin-top:0">A thank-you for businesses on NHYIAMU</h3>
-      <p style="margin:0 0 8px">If you have a listing on NHYIAMU and donate within a year:</p>
+    <p><b>YAHYIAM is free</b> for everyone looking for event suppliers, and basic listings are free for every supplier.</p>
+    <p>If YAHYIAM has helped you, or you believe in what we do, you are warmly encouraged to donate towards the <b>projects of MEYE CATHOLIC ASOREBA</b>. Every cedi helps.</p>
+    <div class="panel"><h3 style="margin-top:0">A thank-you for businesses on YAHYIAM</h3>
+      <p style="margin:0 0 8px">If you have a listing on YAHYIAM and donate within a year:</p>
       <ul style="margin:0">
         <li><b>GH₵ ${esc(st.supporter_min || '50')} or more:</b> you join our <b>♥ Supporters</b> for 12 months. Your business gets a Supporter badge, shows just after the paid places in search results, and is recommended to visitors on the town pages.</li>
         <li><b>GH₵ ${esc(st.donor_flyer_min || '100')} or more:</b> all of the above, and you post your <b>event flyers free</b> for 12 months.</li>
@@ -690,7 +690,7 @@ async function donatePage() {
         <h3 style="margin:0">Donate by Mobile Money</h3>
         <p style="margin:6px 0 0;font-size:1.3rem"><b>${esc(st.donate_number)}</b></p>
         ${st.donate_name ? `<p class="muted" style="margin:2px 0 0">Name: ${esc(st.donate_name)}</p>` : ''}
-        <p class="muted" style="margin:8px 0 0;font-size:.9rem">Use <b>"Donation"</b> and the phone number on your NHYIAMU account as the reference, so we can add the Supporter badge to your business. Thank you!</p></div>`
+        <p class="muted" style="margin:8px 0 0;font-size:.9rem">Use <b>"Donation"</b> and the phone number on your YAHYIAM account as the reference, so we can add the Supporter badge to your business. Thank you!</p></div>`
       : `<div class="notice">Donation details will be shared here very soon.</div>`}
     <p class="muted">Learn about the mission and the projects your gift supports on the <a href="${esc(CFG.mcaSite)}" target="_blank" rel="noopener">MEYE CATHOLIC ASOREBA website ↗</a>.</p>
   </div>`;

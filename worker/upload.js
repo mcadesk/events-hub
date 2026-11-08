@@ -1,7 +1,7 @@
-// NHYIAMU photo upload service (Cloudflare Worker) — saves supplier photos into R2.
-// Only signed-in NHYIAMU users can upload, and only into their own folder (<user id>/...).
+// YAHYIAM photo upload service (Cloudflare Worker) — saves supplier photos into R2.
+// Only signed-in YAHYIAM users can upload, and only into their own folder (<user id>/...).
 // Photos are then served free of bandwidth charges from https://nhyiamu-img.mcadesk.org/<key>
-const ORIGINS = ['https://nhyiamu.mcadesk.org', 'https://nhyiamu.pages.dev', 'https://mcadesk.github.io'];
+const ORIGINS = ['https://yahyiam.mcadesk.org', 'https://nhyiamu.mcadesk.org', 'https://nhyiamu.pages.dev', 'https://mcadesk.github.io'];
 const MAX_BYTES = 3 * 1024 * 1024;
 
 function cors(req) {

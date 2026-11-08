@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=44';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath } from './core.js?v=45';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -127,11 +127,11 @@ function passwordToggles() {
 
 /* ---------- sign in / create account ---------- */
 function signIn(mode = 'signin') {
-  document.title = 'Sign in — NHYIAMU';
+  document.title = 'Sign in — YAHYIAM';
   const isUp = mode === 'signup';
   app.innerHTML = `<div class="wrap"><div class="panel auth-card">
     <h1 style="font-size:1.8rem">${isUp ? 'Create your free account' : 'Sign in'}</h1>
-    <p class="muted" style="margin-top:0">${isUp ? 'For suppliers listing their business, field agents and anyone leaving reviews.' : 'Welcome back to NHYIAMU.'}</p>
+    <p class="muted" style="margin-top:0">${isUp ? 'For suppliers listing their business, field agents and anyone leaving reviews.' : 'Welcome back to YAHYIAM.'}</p>
     <form class="form" id="auth-form">
       ${isUp ? `<div class="field"><label for="a-name">Your name</label><input type="text" id="a-name" required autocomplete="name"></div>
       <div class="field"><label for="a-phone">Phone (WhatsApp)</label><input type="tel" id="a-phone" required placeholder="024 123 4567" autocomplete="tel"></div>` : ''}
@@ -238,10 +238,10 @@ async function home(u) {
   try { const { data: ds } = await db.rpc('my_donor_status'); donor = ds?.[0] || null; } catch {}
   const fmt = (x) => new Date(x + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const donorPanel = !donor ? '' : donor.supporter_until
-    ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Thank you — you are a NHYIAMU Supporter</b> until ${fmt(donor.supporter_until)}.
+    ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Thank you — you are a YAHYIAM Supporter</b> until ${fmt(donor.supporter_until)}.
         <span class="muted">Your business shows with a Supporter badge, just after the paid places, and is recommended on town pages.</span>
         ${donor.free_flyers_until ? `<br><b>Free event flyers</b> until ${fmt(donor.free_flyers_until)}.` : `<br><span class="muted">Give GH₵ ${Math.max(0, Number(donor.flyer_min) - Number(donor.total_12m))} more within the year to also post event flyers free.</span>`}</div>`
-    : listings.length ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Become a NHYIAMU Supporter</b><br><span class="muted">Donate GH₵ ${Number(donor.supporter_min)} or more to the projects of MEYE CATHOLIC ASOREBA and your business is recommended to visitors for a year. GH₵ ${Number(donor.flyer_min)} or more also gives you free event flyers.${Number(donor.total_12m) > 0 ? ` You have given GH₵ ${Number(donor.total_12m)} this year — thank you!` : ''}</span> <a href="#/donate">How to donate</a></div>` : '';
+    : listings.length ? `<div class="panel donor-panel" style="margin-bottom:16px"><b>♥ Become a YAHYIAM Supporter</b><br><span class="muted">Donate GH₵ ${Number(donor.supporter_min)} or more to the projects of MEYE CATHOLIC ASOREBA and your business is recommended to visitors for a year. GH₵ ${Number(donor.flyer_min)} or more also gives you free event flyers.${Number(donor.total_12m) > 0 ? ` You have given GH₵ ${Number(donor.total_12m)} this year — thank you!` : ''}</span> <a href="#/donate">How to donate</a></div>` : '';
   const { data: myApp } = await db.from('team_applications').select('role_wanted,status').eq('user_id', u.id).maybeSingle();
   const APP_MSG = { new: 'received. The regional coordinator will call you soon.', checking: 'being checked. The coordinator is speaking with your pastor or guarantor.', accepted: 'accepted. Welcome to the team!', declined: 'not successful this time. Thank you for applying.' };
   const appPanel = myApp ? `<div class="panel" style="margin-bottom:16px"><b>Your application to join the team</b> (${esc(ROLE_WANT_ALL[myApp.role_wanted])}) has been ${APP_MSG[myApp.status]} ${['new', 'checking'].includes(myApp.status) ? '<a href="#/me/join">View or edit</a>' : ''}</div>` : '';
@@ -304,7 +304,7 @@ async function quotesPage(u) {
   const day = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const when = (t) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   const facts = (q) => [q.event_type, q.event_date && day(q.event_date), q.guests && `${q.guests} guests`, q.budget != null && `Budget ${cedi(q.budget)}`].filter(Boolean).map(esc).join(' · ');
-  const reply = (q) => `https://wa.me/${q.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${q.name}, this is ${q.listings.business_name}. Thank you for your request on NHYIAMU${q.event_type ? ` for your ${q.event_type}` : ''}${q.event_date ? ` on ${day(q.event_date)}` : ''}. `)}`;
+  const reply = (q) => `https://wa.me/${q.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${q.name}, this is ${q.listings.business_name}. Thank you for your request on YAHYIAM${q.event_type ? ` for your ${q.event_type}` : ''}${q.event_date ? ` on ${day(q.event_date)}` : ''}. `)}`;
   document.getElementById('dash').innerHTML = `
     ${toMe.length || u.role !== 'host' ? `<h2>Requests to my business</h2>
     ${toMe.length ? `<div class="row-list">${toMe.map((q) => `<div class="row">
@@ -443,7 +443,7 @@ async function editor(u, id, asAgent) {
         <div class="field"><label for="e-tt">TikTok</label><input type="text" id="e-tt" value="${esc(l?.socials?.tiktok || '')}"></div>
       </div>
     </fieldset>
-    ${agentMode && isNew ? '<label class="check" style="white-space:normal"><input type="checkbox" id="e-consent" required> The supplier agrees to be listed on NHYIAMU with these details</label>' : ''}
+    ${agentMode && isNew ? '<label class="check" style="white-space:normal"><input type="checkbox" id="e-consent" required> The supplier agrees to be listed on YAHYIAM with these details</label>' : ''}
     <fieldset><legend>Photos</legend>
       ${isNew ? '<p class="muted" style="margin:0">Save first, then you can add up to 10 photos of your work.</p>' : `
       <div class="photos" id="photos">${photos.map((p) => `<div class="photo"><img src="${esc(photoUrl(p.path))}" alt=""><button type="button" data-del="${p.id}" data-path="${esc(p.path)}" aria-label="Remove photo">×</button></div>`).join('')}</div>
@@ -561,7 +561,7 @@ function collectExtra() {
 }
 // Resize to max 1280px and compress to JPEG (keeps uploads around 150–300 KB)
 // Saves the photo (max px on the long side) plus a small copy for lists, in Cloudflare R2 through the
-// NHYIAMU upload service. Returns the path to store ("r2/<user id>/..."). Photos never change once saved.
+// YAHYIAM upload service. Returns the path to store ("r2/<user id>/..."). Photos never change once saved.
 async function uploadWithThumb(key, file, max, thumbMax) {
   const [big, small] = await Promise.all([shrink(file, max, 0.72), shrink(file, thumbMax, 0.68)]);
   const { data: { session: s } } = await db.auth.getSession();
@@ -600,7 +600,7 @@ async function getSettings() {
 }
 function payNote(st) {
   const price = st.flyer_price ? `GH₵ ${esc(st.flyer_price)}` : 'the weekly fee';
-  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week. After you send the flyer, pay online here with MoMo or card. Our team checks the flyer, then it goes live for 7 days. NHYIAMU staff never collect cash for flyers.`;
+  if (CFG.paystackKey) return `The fee is <b>${price}</b> for the week. After you send the flyer, pay online here with MoMo or card. Our team checks the flyer, then it goes live for 7 days. YAHYIAM staff never collect cash for flyers.`;
   return st.momo_number
     ? `To publish, pay <b>${price}</b> by Mobile Money to <b>${esc(st.momo_number)}</b>${st.momo_name ? ` (${esc(st.momo_name)})` : ''}, using your phone number as the reference. Our team checks the payment and the flyer, then it goes live for 7 days.`
     : `The fee is <b>${price}</b> per week. Our team will contact you on WhatsApp to arrange payment, then your flyer goes live for 7 days.`;
@@ -635,7 +635,7 @@ async function flyerForm(u, id) {
   shell(u, 'flyer', f ? 'Edit flyer' : 'Post an event flyer', `
     <div class="notice" style="margin-bottom:14px;max-width:760px">Your flyer shows for <b>7 days</b> to people browsing your town and the other towns in the same municipality. ${paidPlan ? '<b>Free for you</b> — you have an active Top spot, Featured or Founding supplier place, or you are a donor of GH₵ ' + esc(st.donor_flyer_min || '100') + '+ this year. Thank you! Our team just checks the flyer, then it goes live for 7 days.' : payNote(st) + ` <a href="#/donate">Donors of GH₵ ${esc(st.donor_flyer_min || '100')} or more</a> post flyers free for a year.`}</div>
     ${f?.status === 'rejected' ? `<div class="notice error" style="margin-bottom:12px;max-width:760px">Not approved: ${esc(f.reject_reason || '')}. Fix it and save to send it again.</div>` : ''}
-    ${limitHit ? `<div class="notice" style="margin-bottom:14px;max-width:760px;background:var(--gold-soft)"><b>You have posted ${LIMIT} flyers in the last ${Math.round(DAYS / 30)} months</b>, which is the limit for personal accounts. You can post your next flyer from <b>${limitHit.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</b>.<br><span class="muted">Event centres and event planners listed on NHYIAMU, suppliers with a Top spot, Featured or Founding place, and donors of GH₵ ${esc(st.donor_flyer_min || '100')}+ have no limit.</span></div>` : ''}
+    ${limitHit ? `<div class="notice" style="margin-bottom:14px;max-width:760px;background:var(--gold-soft)"><b>You have posted ${LIMIT} flyers in the last ${Math.round(DAYS / 30)} months</b>, which is the limit for personal accounts. You can post your next flyer from <b>${limitHit.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</b>.<br><span class="muted">Event centres and event planners listed on YAHYIAM, suppliers with a Top spot, Featured or Founding place, and donors of GH₵ ${esc(st.donor_flyer_min || '100')}+ have no limit.</span></div>` : ''}
     <form class="form" id="fl" style="max-width:760px"${limitHit ? ' hidden' : ''}>
       <fieldset><legend>The programme</legend>
         <div class="field"><label for="fl-title">Name of the programme</label><input type="text" id="fl-title" required maxlength="90" value="${esc(f?.title || '')}" placeholder="e.g. Harvest Thanksgiving Service"></div>
@@ -785,7 +785,7 @@ async function regionHome(u, params) {
     <p>You coordinate: <b>${regions.map(esc).join(', ')}</b> · ${towns.filter((t) => t.active).length} towns open, ${towns.filter((t) => !t.active).length} hidden.</p>
     <div class="row-actions" style="margin-bottom:16px"><a class="btn btn-ghost" href="#/me/agent">Waiting for a visit</a><a class="btn btn-ghost" href="#/me/reports">Reports</a><a class="btn btn-ghost" href="#/me/towns">Towns</a><a class="btn btn-ghost" href="#/me/tally">Tally</a></div>
     <h2>Recruit an agent</h2>
-    <p class="muted">Ask the person to create a free NHYIAMU account first, then find them here.</p>
+    <p class="muted">Ask the person to create a free YAHYIAM account first, then find them here.</p>
     <form class="filters" id="rc-f" style="margin-bottom:12px"><input type="search" id="rc-q" placeholder="Search by email or name" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
     ${q ? `<div class="row-list" style="margin-bottom:20px">${(found.data || []).map((p) => p.role === 'agent'
         ? agentRow({ id: p.id, name: p.full_name, email: p.email }, (stats || []).find((s) => s.agent_id === p.id))
@@ -1342,7 +1342,7 @@ async function confirmPayment(reference, tries = 6) {
   }
   return 'We have not received the payment yet. If money left your account, open My listings in a few minutes; it is checked again automatically.';
 }
-// Starts a payment: the price is set by the database, the client pays NHYIAMU directly in the Paystack window
+// Starts a payment: the price is set by the database, the client pays YAHYIAM directly in the Paystack window
 async function payOnline(args, onDone) {
   const { data, error } = await db.rpc('start_payment', args);
   if (error) return fail(error, 'Starting the payment');
@@ -1370,7 +1370,7 @@ async function recheckMyPayments(u) {
   }
   return changed;
 }
-const NO_CASH = '<div class="notice" style="background:var(--gold-soft)"><b>Pay only on this page.</b> NHYIAMU staff and field agents never collect cash or MoMo for you. If anyone asks you to pay them, please report it.</div>';
+const NO_CASH = '<div class="notice" style="background:var(--gold-soft)"><b>Pay only on this page.</b> YAHYIAM staff and field agents never collect cash or MoMo for you. If anyone asks you to pay them, please report it.</div>';
 
 async function promotePage(u, listingId) {
   const { data: l } = await db.from('listings').select('id,slug,business_name,status,owner_id,base_town_id,coverage,towns(name,size,districts(name,regions(name))),listing_categories(categories(id,parent_id))').eq('id', listingId).maybeSingle();
@@ -1498,7 +1498,7 @@ async function joinForm(u) {
   const locked = a && ['accepted', 'declined'].includes(a.status);
   const sel = (obj, v) => Object.entries(obj).map(([k, t]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(t)}</option>`).join('');
   const et = a?.endorsement_type || 'pastor';
-  shell(u, 'join', 'Join the NHYIAMU team', `
+  shell(u, 'join', 'Join the YAHYIAM team', `
     ${a ? `<div class="notice" style="margin-bottom:14px;max-width:760px">Your application is <span class="status status-${esc(a.status)}">${esc(a.status)}</span>.${locked ? '' : ' You can still update it below.'}</div>` : `<p class="muted" style="max-width:760px">Read about the roles and pay on the <a href="#/join">Join our team</a> page first. We give priority to people who are unemployed.</p>`}
     ${locked ? '' : `<form class="form" id="ja" style="max-width:760px">
       <fieldset><legend>About you</legend>
@@ -1528,7 +1528,7 @@ async function joinForm(u) {
         <span class="hint">The regional coordinator will call this person to confirm before you are accepted.</span>
       </fieldset>
       <label class="check"><input type="checkbox" id="ja-adult" required ${a ? 'checked' : ''}> I am 18 years or older</label>
-      <label class="check"><input type="checkbox" id="ja-consent" required ${a ? 'checked' : ''}> I agree that NHYIAMU may call me and the person above about this application</label>
+      <label class="check"><input type="checkbox" id="ja-consent" required ${a ? 'checked' : ''}> I agree that YAHYIAM may call me and the person above about this application</label>
       <button class="btn" type="submit">${a ? 'Update my application' : 'Send my application'}</button><div id="ja-msg"></div>
     </form>`}`);
   if (locked) return;
@@ -1601,7 +1601,7 @@ async function applications(u, params) {
           ${a.staff_note ? `<dt>Notes</dt><dd>${esc(a.staff_note)}</dd>` : ''}
         </dl>
         <div class="row-actions">
-          <a class="btn btn-wa" href="${wa(a.phone, `Hello ${a.full_name}, this is NHYIAMU about your application to join the team.`)}" target="_blank" rel="noopener">WhatsApp applicant</a>
+          <a class="btn btn-wa" href="${wa(a.phone, `Hello ${a.full_name}, this is YAHYIAM about your application to join the team.`)}" target="_blank" rel="noopener">WhatsApp applicant</a>
           <a class="btn btn-ghost" href="tel:${esc(a.phone)}">Call applicant</a>
           <a class="btn btn-ghost" href="tel:${esc(a.endorser_phone)}">Call ${a.endorsement_type === 'pastor' ? 'pastor' : 'guarantor'}</a>
         </div>
@@ -1643,7 +1643,7 @@ async function partnersAdmin(u) {
         <div class="field"><label>Maximum (GH₵)</label><input type="number" id="lp-max"></div>
       </div>
       <div class="field"><label>Requirements</label><input type="text" id="lp-req" placeholder="e.g. Member for 3 months, Ghana Card"></div>
-      <div class="field"><label>Partner's account email (optional)</label><input type="text" id="lp-owner" placeholder="Their NHYIAMU account, so they can see enquiries"></div>
+      <div class="field"><label>Partner's account email (optional)</label><input type="text" id="lp-owner" placeholder="Their YAHYIAM account, so they can see enquiries"></div>
       <button class="btn" type="submit">Add partner</button></form>
     <div class="row-list">${(data || []).map((p) => `<div class="row"><div class="row-top"><b>${esc(p.name)}</b><span class="status ${p.active ? 'status-live' : ''}">${p.active ? 'shown' : 'hidden'}</span></div>
       <span class="muted">${esc(p.towns || '')} ${p.phone ? '· ' + esc(p.phone) : ''}</span>

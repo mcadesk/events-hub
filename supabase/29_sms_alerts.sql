@@ -1,6 +1,6 @@
 -- 29: SMS alerts (ready, switched off until an SMS account is set up).
 -- Provider: Arkesel (arkesel.com). To switch on:
---   1. Create an Arkesel account, buy SMS credit, and register the sender name NHYIAMU.
+--   1. Create an Arkesel account, buy SMS credit, and register the sender name YAHYIAM.
 --   2. In Supabase → Vault, add a secret named  sms_arkesel  with the Arkesel API key.
 --   3. Run: update app_settings set value = '1' where key = 'sms_enabled';
 -- Messages sent:  supplier gets a text for each new quote request, and when their listing goes live.
@@ -42,7 +42,7 @@ begin
         select status, content into v_res from extensions.http((
           'POST', 'https://sms.arkesel.com/api/v2/sms/send',
           array[extensions.http_header('api-key', v_key)], 'application/json',
-          jsonb_build_object('sender', coalesce((select value from app_settings where key = 'sms_sender'), 'NHYIAMU'),
+          jsonb_build_object('sender', coalesce((select value from app_settings where key = 'sms_sender'), 'YAHYIAM'),
                              'message', left(p_message, 300),
                              'recipients', jsonb_build_array(substr(p_phone, 2)))::text)::extensions.http_request);
         v_status := case when v_res.status between 200 and 299 then 'sent' else 'failed' end;
