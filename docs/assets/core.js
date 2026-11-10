@@ -123,7 +123,7 @@ export async function me(force = false) {
   if (_me !== undefined && !force) return _me;
   const { data: { session: s } } = await db.auth.getSession();
   if (!s) { _me = null; return null; }
-  const { data } = await db.from('profiles').select('id,full_name,phone,email,role,sms_news').eq('id', s.user.id).maybeSingle();
+  const { data } = await db.from('profiles').select('id,full_name,phone,email,role').eq('id', s.user.id).maybeSingle();
   _me = data ? { ...data, email: data.email || s.user.email } : { id: s.user.id, email: s.user.email, role: 'host' };
   return _me;
 }
