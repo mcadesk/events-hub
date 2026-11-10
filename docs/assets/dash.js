@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=49';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=50';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -28,6 +28,7 @@ export async function route(parts, params) {
     towns: () => need(u, ['admin', 'coordinator']) && townsAdmin(u),
     featured: () => need(u, ['admin']) && featuredAdmin(u),
     donations: () => need(u, ['admin']) && donationsAdmin(u),
+    texts: () => need(u, ['admin']) && textsAdmin(u),
     tally: () => need(u, ['agent', 'admin', 'coordinator', 'moderator']) && tally(u, params),
     partners: () => need(u, ['admin']) && partnersAdmin(u),
     enquiries: () => need(u, ['partner', 'admin']) && enquiries(u),
@@ -73,6 +74,7 @@ function shell(u, active, title, body) {
       ${t('towns', 'Towns', ['admin', 'coordinator'])}
       ${t('featured', 'Featured', ['admin'])}
       ${t('donations', 'Donations', ['admin'])}
+      ${t('texts', 'Text messages', ['admin'])}
       ${t('tally', u.role === 'agent' ? 'My tally' : u.role === 'moderator' ? 'My pay' : 'Agent tally', ['agent', 'admin', 'coordinator', 'moderator'])}
       ${t('partners', 'Loan partners', ['admin'])}
       ${t('enquiries', 'Loan enquiries', ['partner', 'admin'])}
@@ -334,19 +336,99 @@ async function quotesPage(u) {
   }));
 }
 
+/* ---------- text messages (admin) ---------- */
+const SMS_TPLS = [
+  ['sms_tpl_quote', 'New quote request', 'Sent to a supplier when a customer asks for a quote.', '{name} customer · {event} " for Wedding" · {date} " on 12 Dec" · {business} · {link}'],
+  ['sms_tpl_live', 'Listing is live', 'Sent to a supplier when their listing is approved.', '{business} · {link}'],
+  ['sms_tpl_welcome', 'Welcome', 'Sent once to a person when their account first gets a phone number.', '{name} first name']
+];
+async function textsAdmin(u) {
+  shell(u, 'texts', 'Text messages', '<div class="skeleton"></div>');
+  const [{ data: st }, { data: towns }, { data: log }] = await Promise.all([
+    db.from('app_settings').select('key,value').in('key', ['sms_enabled', 'sms_welcome_on', 'sms_optout_line', ...SMS_TPLS.map((t) => t[0])]),
+    db.from('towns').select('id,name').eq('active', true).order('name'),
+    db.from('sms_log').select('phone,message,reason,status,created_at').order('id', { ascending: false }).limit(30)
+  ]);
+  const v = Object.fromEntries((st || []).map((r) => [r.key, r.value]));
+  const counter = (id) => `<span class="hint" data-count="${id}"></span>`;
+  document.getElementById('dash').innerHTML = `
+    ${v.sms_enabled === '1' ? '' : '<p class="notice">Text messages are switched off at the moment.</p>'}
+    <h2>Greeting or announcement</h2>
+    <p class="muted">Send one message to many people, for Christmas, Easter, Eid, Independence Day or a thank-you. Keep it to greetings and news: YAHYIAM's sender name was registered for alerts, not advertising.</p>
+    <form class="form" id="bc-form" style="max-width:640px">
+      <div class="field"><label for="bc-msg">Message</label><textarea id="bc-msg" rows="4" maxlength="400" required placeholder="e.g. Merry Christmas, {name}! Thank you for being part of YAHYIAM. God bless you and your family."></textarea>${counter('bc-msg')}<span class="hint">Use {name} to greet each person by first name.</span></div>
+      <div class="form-grid two">
+        <div class="field"><label for="bc-aud">Send to</label><select id="bc-aud"><option value="all">Everyone with a phone number</option><option value="suppliers">Suppliers with a live listing</option><option value="town">Suppliers in one town</option></select></div>
+        <div class="field" id="bc-town-f" hidden><label for="bc-town">Town</label><select id="bc-town">${(towns || []).map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>
+      </div>
+      <label class="check" style="white-space:normal"><input type="checkbox" id="bc-opt" checked> Add the "how to stop these texts" line: <i>${esc(v.sms_optout_line || '')}</i></label>
+      <p id="bc-count" class="muted"></p>
+      <button class="btn" type="submit">Send message</button>
+    </form>
+    <h2 style="margin-top:28px">Automatic messages</h2>
+    <p class="muted">These go out by themselves. Change the wording here; the words in {curly brackets} are filled in for each person. Up to 160 characters costs one text credit.</p>
+    <form class="form" id="tpl-form" style="max-width:640px">
+      ${SMS_TPLS.map(([k, label, when, tags]) => `<div class="field"><label for="${k}">${esc(label)}</label><span class="hint">${esc(when)}</span><textarea id="${k}" rows="2" maxlength="300">${esc(v[k] || '')}</textarea>${counter(k)}<span class="hint">Tags: ${esc(tags)}</span></div>`).join('')}
+      <label class="check"><input type="checkbox" id="welcome-on" ${v.sms_welcome_on === '1' ? 'checked' : ''}> Send the welcome message</label>
+      <div class="field"><label for="optout">"How to stop" line added to greetings</label><input type="text" id="optout" maxlength="80" value="${esc(v.sms_optout_line || '')}"></div>
+      <button class="btn" type="submit">Save wording</button>
+    </form>
+    <h2 style="margin-top:28px">Recent texts</h2>
+    ${(log || []).length ? `<div style="overflow-x:auto"><table class="table" style="font-size:.88rem"><thead><tr><th>When</th><th>To</th><th>Type</th><th>Result</th><th>Message</th></tr></thead><tbody>${log.map((r) => `<tr><td>${new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td>${esc(localPhone(r.phone))}</td><td>${esc(r.reason)}</td><td>${esc(r.status)}</td><td>${esc(r.message)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No texts yet.</p>'}`;
+  const count = (id) => {
+    const el = document.getElementById(id); const out = document.querySelector(`[data-count="${id}"]`);
+    const upd = () => { const n = el.value.replace(/\{name\}/g, 'Akosua').length; const parts = n <= 160 ? 1 : Math.ceil(n / 153); out.textContent = `${n} characters · ${parts} credit${parts > 1 ? 's' : ''} per person (about)`; };
+    el.addEventListener('input', upd); upd();
+  };
+  ['bc-msg', ...SMS_TPLS.map((t) => t[0])].forEach(count);
+  const aud = document.getElementById('bc-aud'), townSel = document.getElementById('bc-town');
+  const refresh = async () => {
+    document.getElementById('bc-town-f').hidden = aud.value !== 'town';
+    const { data: n, error } = await db.rpc('sms_audience_count', { p_audience: aud.value, p_town: aud.value === 'town' ? Number(townSel.value) : null });
+    document.getElementById('bc-count').textContent = error ? '' : `This will go to ${n} ${n === 1 ? 'person' : 'people'} (people who turned greetings off are left out).`;
+    document.getElementById('bc-count').dataset.n = n || 0;
+  };
+  aud.addEventListener('change', refresh); townSel.addEventListener('change', refresh); refresh();
+  document.getElementById('bc-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('bc-msg').value.trim();
+    const n = Number(document.getElementById('bc-count').dataset.n || 0);
+    if (!n) return toast('Nobody to send to.', true);
+    if (!confirm(`Send this message to ${n} ${n === 1 ? 'person' : 'people'}? It uses about ${n} text credit${n === 1 ? '' : 's'} or more.\n\n${msg}`)) return;
+    const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Sending…';
+    const { data, error } = await db.rpc('sms_broadcast', { p_message: msg, p_audience: aud.value, p_town: aud.value === 'town' ? Number(townSel.value) : null, p_optout: document.getElementById('bc-opt').checked });
+    btn.disabled = false; btn.textContent = 'Send message';
+    if (error) return fail(error, 'Sending');
+    toast(`Sent to ${data.sent}${data.failed ? `, ${data.failed} failed` : ''}.`);
+    textsAdmin(u);
+  });
+  document.getElementById('tpl-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rows = [...SMS_TPLS.map(([k]) => ({ key: k, value: document.getElementById(k).value.trim() })),
+      { key: 'sms_welcome_on', value: document.getElementById('welcome-on').checked ? '1' : '0' },
+      { key: 'sms_optout_line', value: document.getElementById('optout').value.trim() }];
+    if (rows.some((r) => r.key.startsWith('sms_tpl') && r.value.length < 10)) return toast('Each message needs some words.', true);
+    const { error } = await db.from('app_settings').upsert(rows);
+    if (error) return fail(error, 'Saving');
+    toast('Saved.');
+  });
+}
+
 /* ---------- my details ---------- */
 function profile(u) {
   shell(u, 'profile', 'My details', `<form class="form" id="p-form" style="max-width:480px">
     <div class="field"><label for="p-name">Name</label><input type="text" id="p-name" value="${esc(u.full_name || '')}" required></div>
     <div class="field"><label for="p-phone">Phone</label><input type="tel" id="p-phone" value="${esc(localPhone(u.phone))}"></div>
     <div class="field"><label>Email</label><input type="text" value="${esc(u.email || '')}" disabled></div>
+    <label class="check" style="white-space:normal"><input type="checkbox" id="p-news" ${u.sms_news !== false ? 'checked' : ''}> Send me occasional greetings and news from YAHYIAM by text</label>
+    <span class="hint">Alerts about your own listing and quote requests are always sent.</span>
     <button class="btn" type="submit">Save</button></form>`);
   document.getElementById('p-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const phoneRaw = document.getElementById('p-phone').value.trim();
     const phone = phoneRaw ? toGhanaPhone(phoneRaw) : null;
     if (phoneRaw && !phone) return toast('Please enter a valid Ghana phone number.', true);
-    const { error } = await db.from('profiles').update({ full_name: document.getElementById('p-name').value.trim(), phone }).eq('id', u.id);
+    const { error } = await db.from('profiles').update({ full_name: document.getElementById('p-name').value.trim(), phone, sms_news: document.getElementById('p-news').checked }).eq('id', u.id);
     if (error) return fail(error, 'Saving');
     clearMe(); toast('Saved.');
   });
