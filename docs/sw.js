@@ -1,8 +1,8 @@
 // Keeps the app shell available offline; data always comes fresh from the network.
-const CACHE = 'eventshub-v53';
+const CACHE = 'eventshub-v54';
 const PHOTOS = 'nhyiamu-photos';
 async function trimPhotos(c) { const keys = await c.keys(); for (const k of keys.slice(0, Math.max(0, keys.length - 400))) await c.delete(k); }
-const SHELL = ['./', 'index.html', 'config.js?v=52', 'assets/app.css?v=52', 'assets/app.js?v=52', 'assets/sample.js?v=52', 'assets/core.js?v=52', 'assets/dash.js?v=52', 'icons/logo-mark.png', 'manifest.webmanifest'];
+const SHELL = ['./', 'index.html', 'config.js?v=52', 'assets/app.css?v=53', 'assets/app.js?v=52', 'assets/sample.js?v=52', 'assets/core.js?v=52', 'assets/dash.js?v=52', 'icons/logo-mark.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

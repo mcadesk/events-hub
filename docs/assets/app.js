@@ -587,7 +587,7 @@ function listPage() {
     <div class="medals" style="margin:4px 0 14px" aria-label="YAHYIAM badges">
       <img src="icons/badges/listed.png" alt="Listed on YAHYIAM badge" title="Every listed supplier" loading="lazy">
       <img src="icons/badges/founding.png" alt="Founding Supplier badge" title="First 10 suppliers in each town" loading="lazy">
-      <img src="icons/badges/featured.png" alt="Featured Supplier badge" title="Featured places" loading="lazy">
+      <img src="icons/badges/featured.png?v=53" alt="Featured Supplier badge" title="Featured places" loading="lazy">
       <img src="icons/badges/top.png" alt="Top Spot badge" title="Top spots" loading="lazy">
       <img src="icons/badges/supporter.png" alt="Supporter badge" title="Donors to MEYE CATHOLIC ASOREBA projects" loading="lazy">
     </div>

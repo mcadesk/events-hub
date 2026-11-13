@@ -256,7 +256,7 @@ async function home(u) {
   ].filter((k) => k[2]);
   const badgeKit = liveL.length ? `<div class="panel" style="margin-top:20px"><h3 style="margin:0 0 4px">Your YAHYIAM badges</h3>
     <span class="muted">Share them on WhatsApp and Facebook, or print them for your shop, so customers know they can find you on YAHYIAM.</span>
-    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
+    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=53" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
       <a class="btn btn-ghost btn-small" href="icons/badges/${k}.png" download="YAHYIAM-${k}.png">Download</a></figure>`).join('')}</div></div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>

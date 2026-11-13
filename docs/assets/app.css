@@ -114,7 +114,7 @@ select:focus, input:focus, textarea:focus { outline: none; border-color: var(--g
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { font-size: .72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #eef0f5; color: var(--ink); letter-spacing: .01em; }
 .badge-verified { background: var(--green-soft); color: var(--green); }
-.badge-featured { background: var(--gold); color: var(--ink); }
+.badge-featured { background: var(--gold); color: var(--ink); box-shadow: inset 0 0 0 2px var(--green); }
 .badge-founding { background: var(--green); color: var(--gold); box-shadow: inset 0 0 0 2px var(--gold); }
 .badge-supporter { background: var(--gold-soft); color: var(--green); box-shadow: inset 0 0 0 1.5px var(--gold); }
 .flyer .badge-supporter { align-self: flex-start; margin-top: 4px; }
