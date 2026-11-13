@@ -60,7 +60,7 @@ h3 { font-size: 1.1rem; }
 .hero { background: linear-gradient(160deg, rgba(1,27,89,.93) 0%, rgba(0,17,61,.88) 100%), var(--hero-img, none) center/cover, var(--green); color: #fff; padding: 36px 0 28px; position: relative; overflow: hidden; }
 .hero::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--gold); }
 .hero::before { content: ''; position: absolute; right: -60px; top: -40px; width: 260px; height: 260px; opacity: .10;
-  background: url('../icons/logo-mark.png') center/contain no-repeat; filter: brightness(0) invert(1); pointer-events: none; }
+  background: url('../icons/logo-mark.png?v=52') center/contain no-repeat; filter: brightness(0) invert(1); pointer-events: none; }
 .hero .wrap { position: relative; z-index: 1; }
 .hero h1 { color: #fff; max-width: 15ch; }
 .hero p { color: #d3dbef; max-width: 46ch; margin: 0 0 20px; }
@@ -281,9 +281,9 @@ body.has-cta { padding-bottom: 70px; }
 
 /* Brand badges (YAHYIAM brand kit, Nov 2026) */
 .badge-mark { display: inline-flex; align-items: center; gap: 5px; padding-left: 6px; }
-.badge-mark::before { content: ''; width: 15px; height: 15px; flex: none; background: url(../icons/badges/mark-sm.png) center / contain no-repeat; }
-.badge-top.badge-mark::before, .badge-founding.badge-mark::before { background-image: url(../icons/badges/mark-sm-rev.png); }
-.badge-featured.badge-mark::before { background-image: url(../icons/badges/mark-sm-navy.png); }
+.badge-mark::before { content: ''; width: 15px; height: 15px; flex: none; background: url(../icons/badges/mark-sm.png?v=52) center / contain no-repeat; }
+.badge-top.badge-mark::before, .badge-founding.badge-mark::before { background-image: url(../icons/badges/mark-sm-rev.png?v=52); }
+.badge-featured.badge-mark::before { background-image: url(../icons/badges/mark-sm-navy.png?v=52); }
 .medals { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
 .medals img { width: 84px; height: 84px; display: block; }
 .badge-kit { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 12px; }
