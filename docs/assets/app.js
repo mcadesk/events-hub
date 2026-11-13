@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=52';
-import { SAMPLE_LISTINGS } from './sample.js?v=52';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=53';
+import { SAMPLE_LISTINGS } from './sample.js?v=53';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -43,7 +43,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=52');
+      const dash = await import('./dash.js?v=53');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -587,7 +587,7 @@ function listPage() {
     <div class="medals" style="margin:4px 0 14px" aria-label="YAHYIAM badges">
       <img src="icons/badges/listed.png" alt="Listed on YAHYIAM badge" title="Every listed supplier" loading="lazy">
       <img src="icons/badges/founding.png" alt="Founding Supplier badge" title="First 10 suppliers in each town" loading="lazy">
-      <img src="icons/badges/featured.png" alt="Featured Supplier badge" title="Featured places" loading="lazy">
+      <img src="icons/badges/featured.png?v=53" alt="Featured Supplier badge" title="Featured places" loading="lazy">
       <img src="icons/badges/top.png" alt="Top Spot badge" title="Top spots" loading="lazy">
       <img src="icons/badges/supporter.png" alt="Supporter badge" title="Donors to MEYE CATHOLIC ASOREBA projects" loading="lazy">
     </div>
