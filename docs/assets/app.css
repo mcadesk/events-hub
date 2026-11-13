@@ -114,9 +114,9 @@ select:focus, input:focus, textarea:focus { outline: none; border-color: var(--g
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { font-size: .72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #eef0f5; color: var(--ink); letter-spacing: .01em; }
 .badge-verified { background: var(--green-soft); color: var(--green); }
-.badge-featured { background: var(--gold-soft); color: #7a5000; }
-.badge-founding { background: #f6e4e2; color: var(--red); }
-.badge-supporter { background: #fde8ef; color: #a1194a; }
+.badge-featured { background: var(--gold); color: var(--ink); }
+.badge-founding { background: var(--green); color: var(--gold); box-shadow: inset 0 0 0 2px var(--gold); }
+.badge-supporter { background: var(--gold-soft); color: var(--green); box-shadow: inset 0 0 0 1.5px var(--gold); }
 .flyer .badge-supporter { align-self: flex-start; margin-top: 4px; }
 .flyer-img.sup-img { aspect-ratio: 4 / 3; }
 .donor-panel { border-left: 4px solid #d63c74; }
@@ -249,7 +249,7 @@ body.has-cta { padding-bottom: 70px; }
 .prose .cat-banner { max-width: 100%; }
 .wrap.section { padding-left: 16px; padding-right: 16px; }
 .cat-banner { background-position: center 30%; }
-.badge-top { background: var(--gold); color: var(--ink); }
+.badge-top { background: var(--green-dark); color: #fff; box-shadow: inset 0 0 0 2px var(--gold); }
 .card.is-top { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 6px 18px rgba(253,177,1,.18); }
 /* Event flyers */
 .flyers { display: grid; grid-auto-flow: column; grid-auto-columns: 220px; gap: 12px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }
@@ -278,3 +278,16 @@ body.has-cta { padding-bottom: 70px; }
 .status-closed { background: #eee; color: #555; }
 .or-line { display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--muted, #777); font-size:.9rem; }
 .or-line::before, .or-line::after { content:""; flex:1; border-top:1px solid var(--line); }
+
+/* Brand badges (YAHYIAM brand kit, Nov 2026) */
+.badge-mark { display: inline-flex; align-items: center; gap: 5px; padding-left: 6px; }
+.badge-mark::before { content: ''; width: 15px; height: 15px; flex: none; background: url(../icons/badges/mark-sm.png) center / contain no-repeat; }
+.badge-top.badge-mark::before, .badge-founding.badge-mark::before { background-image: url(../icons/badges/mark-sm-rev.png); }
+.badge-featured.badge-mark::before { background-image: url(../icons/badges/mark-sm-navy.png); }
+.medals { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
+.medals img { width: 84px; height: 84px; display: block; }
+.badge-kit { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 12px; }
+.badge-kit figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.badge-kit img { width: 120px; height: 120px; object-fit: contain; }
+.badge-kit img.sticker { width: 140px; height: 119px; }
+.badge-kit figcaption { font-size: .88rem; font-weight: 600; }

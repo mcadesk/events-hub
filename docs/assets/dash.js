@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=50';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=51';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -247,6 +247,17 @@ async function home(u) {
   const { data: myApp } = await db.from('team_applications').select('role_wanted,status').eq('user_id', u.id).maybeSingle();
   const APP_MSG = { new: 'received. The regional coordinator will call you soon.', checking: 'being checked. The coordinator is speaking with your pastor or guarantor.', accepted: 'accepted. Welcome to the team!', declined: 'not successful this time. Thank you for applying.' };
   const appPanel = myApp ? `<div class="panel" style="margin-bottom:16px"><b>Your application to join the team</b> (${esc(ROLE_WANT_ALL[myApp.role_wanted])}) has been ${APP_MSG[myApp.status]} ${['new', 'checking'].includes(myApp.status) ? '<a href="#/me/join">View or edit</a>' : ''}</div>` : '';
+  const liveL = listings.filter((l) => l.status === 'live');
+  const kitItems = [
+    ['listed', 'Listed on YAHYIAM', true],
+    ['founding', 'Founding Supplier', liveL.some((l) => l.founding)],
+    ['supporter', 'YAHYIAM Supporter', !!donor?.supporter_until],
+    ['sticker', 'Shop window sticker', true]
+  ].filter((k) => k[2]);
+  const badgeKit = liveL.length ? `<div class="panel" style="margin-top:20px"><h3 style="margin:0 0 4px">Your YAHYIAM badges</h3>
+    <span class="muted">Share them on WhatsApp and Facebook, or print them for your shop, so customers know they can find you on YAHYIAM.</span>
+    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
+      <a class="btn btn-ghost btn-small" href="icons/badges/${k}.png" download="YAHYIAM-${k}.png">Download</a></figure>`).join('')}</div></div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
     <div class="row-list">${listings.map((l) => {
@@ -255,7 +266,7 @@ async function home(u) {
         <div class="row-top"><div style="display:flex;gap:10px;align-items:center">
           <div style="width:52px;height:52px;border-radius:10px;overflow:hidden;flex:none">${ph ? thumbImg(ph.path).replace('<img ', '<img style="width:100%;height:100%;object-fit:cover" ') : placeholder(l.business_name, hash(l.slug))}</div>
           <div><b>${esc(l.business_name)}</b><br><span class="muted" style="font-size:.88rem">${esc(l.towns?.name || '')}</span></div></div>
-          <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding">Founding</span>' : ''}</div></div>
+          <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding badge-mark">Founding</span>' : ''}</div></div>
         ${l.status === 'rejected' && l.reject_reason ? `<div class="notice error">Not approved: ${esc(l.reject_reason)}. Please fix and submit again.</div>` : ''}
         ${l.status === 'draft' ? '<div class="notice">Draft — not visible yet. Submit it when you are ready.</div>' : ''}
         ${l.pending_contact ? `<div class="notice" style="background:var(--gold-soft)">New number ${esc(localPhone(l.pending_contact.phone))} is waiting for our team to check it.</div>` : ''}
@@ -269,6 +280,7 @@ async function home(u) {
           ${l.status === 'live' && stale(l) ? `<button class="btn btn-gold" data-confirm="${l.id}">Details are correct</button>` : ''}
           ${l.status === 'live' && CFG.paystackKey ? `<a class="btn btn-ghost" href="#/me/promote/${l.id}">★ Get a Top spot or Featured place</a>` : ''}
         </div></div>`; }).join('')}</div>` : ''}
+    ${badgeKit}
     ${(reviews || []).length ? `<h2 style="margin-top:24px">Reviews of my business</h2><div class="row-list">${reviews.map((r) => `<div class="row">
       <div><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span> <span class="muted">· ${esc(listings.find((l) => l.id === r.listing_id)?.business_name || '')}${r.event_type ? ' · ' + esc(r.event_type) : ''}</span></div>
       <div>${esc(r.comment || '')}</div>
@@ -1087,7 +1099,7 @@ async function allListings(u, params) {
       <select id="al-s">${['all', 'live', 'pending', 'draft', 'rejected', 'suspended'].map((s) => `<option ${s === status ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <button class="btn btn-small" type="submit">Search</button></form>
     <div class="row-list">${data.map((l) => `<div class="row"><div class="row-top"><div><b>${esc(l.business_name)}</b><br><span class="muted">${esc(l.towns?.name)}</span></div>
-      <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding">Founding</span>' : ''}</div></div>
+      <div class="badges">${statusBadge(l.status)}${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}${l.founding ? '<span class="badge badge-founding badge-mark">Founding</span>' : ''}</div></div>
       <div class="row-actions"><a class="btn btn-ghost" href="#/l/${esc(l.slug)}">View</a><a class="btn btn-ghost" href="#/me/edit/${l.id}">Edit</a>
         ${l.status === 'live' ? `<button class="btn btn-ghost" data-st="suspended" data-id="${l.id}">Suspend</button>` : ''}
         ${l.status === 'suspended' ? `<button class="btn btn-ghost" data-st="live" data-id="${l.id}">Restore</button>` : ''}
@@ -1366,7 +1378,7 @@ async function donationsAdmin(u) {
     <h2>Donors in the last 12 months</h2>
     <table class="table"><thead><tr><th>Donor</th><th>Total</th><th>Status</th></tr></thead><tbody>
       ${ids.sort((a, b) => people[b].total - people[a].total).map((id) => { const x = people[id]; return `<tr><td>${esc(x.p?.full_name || x.p?.email || '')}<br><span class="muted">${esc(x.p?.email || '')} ${esc(x.p?.phone || '')}</span></td><td>${cedi(x.total)}</td>
-        <td>${x.s.free_flyers_until ? `<span class="badge badge-supporter">♥ Supporter + free flyers</span><br><span class="muted">until ${fmt(x.s.supporter_until)} / flyers ${fmt(x.s.free_flyers_until)}</span>` : x.s.supporter_until ? `<span class="badge badge-supporter">♥ Supporter</span><br><span class="muted">until ${fmt(x.s.supporter_until)}</span>` : `<span class="muted">GH₵ ${sMin - x.total} more to be a Supporter</span>`}</td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">No donations recorded yet.</td></tr>'}</tbody></table>
+        <td>${x.s.free_flyers_until ? `<span class="badge badge-supporter badge-mark">Supporter + free flyers</span><br><span class="muted">until ${fmt(x.s.supporter_until)} / flyers ${fmt(x.s.free_flyers_until)}</span>` : x.s.supporter_until ? `<span class="badge badge-supporter badge-mark">Supporter</span><br><span class="muted">until ${fmt(x.s.supporter_until)}</span>` : `<span class="muted">GH₵ ${sMin - x.total} more to be a Supporter</span>`}</td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">No donations recorded yet.</td></tr>'}</tbody></table>
     ${(rows || []).length ? `<h2 style="margin-top:22px">All donations (12 months)</h2><table class="table"><thead><tr><th>Date</th><th>Donor</th><th>Amount</th><th>Reference</th><th></th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${fmt(r.donated_on)}</td><td>${esc(r.profiles?.full_name || r.profiles?.email || '')}</td><td>${cedi(r.amount)}</td><td>${esc(r.payment_ref || '')}</td><td><button class="linkish" data-del="${r.id}">Remove</button></td></tr>`).join('')}</tbody></table>` : ''}`;
 

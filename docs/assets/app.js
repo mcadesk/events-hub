@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=50';
-import { SAMPLE_LISTINGS } from './sample.js?v=50';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=51';
+import { SAMPLE_LISTINGS } from './sample.js?v=51';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -43,7 +43,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=50');
+      const dash = await import('./dash.js?v=51');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -268,10 +268,10 @@ function card(l) {
       <div class="card-meta">${esc(l.town_name)}${l.rating ? ` · <span class="stars">★</span> ${l.rating} (${l.review_count})` : ''}${l.distance_km != null && l.travels ? ` · ${Math.round(l.distance_km)} km away` : ''}</div>
       <div class="price">${esc(priceText(l))}</div>
       <div class="badges">
-        ${l.featured_level === 2 ? `<span class="badge badge-top">★ Top spot${SCOPE[l.place_level] || ''}</span>` : l.featured ? `<span class="badge badge-featured">Featured${SCOPE[l.place_level] || ''}</span>` : ''}
+        ${l.featured_level === 2 ? `<span class="badge badge-top badge-mark">Top spot${SCOPE[l.place_level] || ''}</span>` : l.featured ? `<span class="badge badge-featured badge-mark">Featured${SCOPE[l.place_level] || ''}</span>` : ''}
         ${l.verified ? '<span class="badge badge-verified">✓ Verified</span>' : ''}
-        ${l.supporter ? '<span class="badge badge-supporter">♥ Supporter</span>' : ''}
-        ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
+        ${l.supporter ? '<span class="badge badge-supporter badge-mark">Supporter</span>' : ''}
+        ${l.founding ? '<span class="badge badge-founding badge-mark">Founding supplier</span>' : ''}
         ${l.travels ? '<span class="badge badge-travel">Travels to your area</span>' : ''}
         ${l.negotiable ? '<span class="badge">Open to discussion</span>' : ''}
         ${l.discounts ? '<span class="badge">Discounts</span>' : ''}
@@ -338,10 +338,12 @@ async function listingPage(slug) {
         <h1 style="margin-top:6px">${esc(l.business_name)}</h1>
         <div class="badges" style="margin-bottom:10px">
           ${l.verified ? '<span class="badge badge-verified">✓ Verified by YAHYIAM</span>' : ''}
-          ${l.supporter ? '<span class="badge badge-supporter" title="Has donated to the projects of MEYE CATHOLIC ASOREBA">♥ YAHYIAM Supporter</span>' : ''}
-          ${l.founding ? '<span class="badge badge-founding">Founding supplier</span>' : ''}
           ${l.categories.map((c) => `<span class="badge">${esc(c.name)}</span>`).join('')}
         </div>
+        ${l.founding || l.supporter ? `<div class="medals">
+          ${l.founding ? '<img src="icons/badges/founding.png" alt="YAHYIAM Founding Supplier badge" title="One of the first suppliers listed in this town">' : ''}
+          ${l.supporter ? '<img src="icons/badges/supporter.png" alt="YAHYIAM Supporter badge" title="Has donated to the projects of MEYE CATHOLIC ASOREBA">' : ''}
+        </div>` : ''}
         <p class="muted" style="margin:0 0 12px">${esc(l.town.name)}, ${esc(l.town.districts.name)}${avg ? ` · <span class="stars">★</span> ${avg} from ${ratings.length} review${ratings.length > 1 ? 's' : ''}` : ''}</p>
         <div class="panel"><h3>About</h3><p style="margin:0;white-space:pre-line">${esc(l.description)}</p></div>
         <div class="panel" style="margin-top:12px"><h3>Details</h3><dl class="kv">
@@ -582,6 +584,13 @@ function listPage() {
       <li><b>First 10 suppliers in each town</b> get 3 months featured free and a Founding supplier badge.</li>
       <li><b>Get verified:</b> an YAHYIAM field agent visits you and adds the Verified badge.</li>
     </ul>
+    <div class="medals" style="margin:4px 0 14px" aria-label="YAHYIAM badges">
+      <img src="icons/badges/listed.png" alt="Listed on YAHYIAM badge" title="Every listed supplier" loading="lazy">
+      <img src="icons/badges/founding.png" alt="Founding Supplier badge" title="First 10 suppliers in each town" loading="lazy">
+      <img src="icons/badges/featured.png" alt="Featured Supplier badge" title="Featured places" loading="lazy">
+      <img src="icons/badges/top.png" alt="Top Spot badge" title="Top spots" loading="lazy">
+      <img src="icons/badges/supporter.png" alt="Supporter badge" title="Donors to MEYE CATHOLIC ASOREBA projects" loading="lazy">
+    </div>
     <div class="cta-band" style="margin-top:8px"><div><b>Ready? It takes about 5 minutes.</b><br><span class="muted">Create a free account, add your photos and prices, and our team will check and publish your listing.</span></div><a class="btn" href="#/me/new" id="list-start">Create my listing</a></div>
     <p class="muted">Prefer help? Our field agents are visiting suppliers to register them in person, starting in Ejisu and Juaben.</p>
     <h2 style="margin-top:24px">Optional: get seen first</h2>
@@ -638,7 +647,7 @@ async function supportersSection(town, el) {
     <p class="muted" style="margin:-6px 0 10px;font-size:.92rem">These businesses donate to the projects of MEYE CATHOLIC ASOREBA. Thank you!</p>
     <div class="flyers">${list.map((s) => `<a class="flyer" href="#/l/${esc(s.slug)}">
       <div class="flyer-img sup-img">${s.photo ? thumbImg(s.photo) : placeholder(s.business_name, hash(s.slug))}</div>
-      <div class="flyer-body"><b>${esc(s.business_name)}</b><span class="muted">${esc(s.category || '')}</span><span class="muted">${esc(s.town_name)}</span><span class="badge badge-supporter">♥ Supporter</span></div>
+      <div class="flyer-body"><b>${esc(s.business_name)}</b><span class="muted">${esc(s.category || '')}</span><span class="muted">${esc(s.town_name)}</span><span class="badge badge-supporter badge-mark">Supporter</span></div>
     </a>`).join('')}</div>`;
 }
 
