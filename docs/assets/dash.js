@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=53';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=54';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -256,7 +256,7 @@ async function home(u) {
   ].filter((k) => k[2]);
   const badgeKit = liveL.length ? `<div class="panel" style="margin-top:20px"><h3 style="margin:0 0 4px">Your YAHYIAM badges</h3>
     <span class="muted">Share them on WhatsApp and Facebook, or print them for your shop, so customers know they can find you on YAHYIAM.</span>
-    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=53" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
+    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=54" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
       <a class="btn btn-ghost btn-small" href="icons/badges/${k}.png" download="YAHYIAM-${k}.png">Download</a></figure>`).join('')}</div></div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
@@ -357,20 +357,23 @@ const SMS_TPLS = [
 async function textsAdmin(u) {
   shell(u, 'texts', 'Text messages', '<div class="skeleton"></div>');
   const [{ data: st }, { data: towns }, { data: log }] = await Promise.all([
-    db.from('app_settings').select('key,value').in('key', ['sms_enabled', 'sms_welcome_on', 'sms_optout_line', ...SMS_TPLS.map((t) => t[0])]),
+    db.from('app_settings').select('key,value').in('key', ['sms_enabled', 'sms_welcome_on', 'sms_optout_line', 'sms_sender', 'sms_senders', ...SMS_TPLS.map((t) => t[0])]),
     db.from('towns').select('id,name').eq('active', true).order('name'),
-    db.from('sms_log').select('phone,message,reason,status,created_at').order('id', { ascending: false }).limit(30)
+    db.from('sms_log').select('phone,message,reason,status,sender,created_at').order('id', { ascending: false }).limit(30)
   ]);
   const v = Object.fromEntries((st || []).map((r) => [r.key, r.value]));
+  const mainSender = v.sms_sender || 'YAHYIAM';
+  const senders = [...new Set([mainSender, ...String(v.sms_senders || '').split(',').map((x) => x.trim()).filter(Boolean)])];
   const counter = (id) => `<span class="hint" data-count="${id}"></span>`;
   document.getElementById('dash').innerHTML = `
     ${v.sms_enabled === '1' ? '' : '<p class="notice">Text messages are switched off at the moment.</p>'}
     <h2>Greeting or announcement</h2>
-    <p class="muted">Send one message to many people, for Christmas, Easter, Eid, Independence Day or a thank-you. Keep it to greetings and news: YAHYIAM's sender name was registered for alerts, not advertising.</p>
+    <p class="muted">Send one message to many people, for Christmas, Easter, Eid, Independence Day or a thank-you. ${esc(mainSender)} is registered for alerts, so send donation appeals and the mission's greetings from MCASOREBA.</p>
     <form class="form" id="bc-form" style="max-width:640px">
       <div class="field"><label for="bc-msg">Message</label><textarea id="bc-msg" rows="4" maxlength="400" required placeholder="e.g. Merry Christmas, {name}! Thank you for being part of YAHYIAM. God bless you and your family."></textarea>${counter('bc-msg')}<span class="hint">Use {name} to greet each person by first name.</span></div>
       <div class="form-grid two">
         <div class="field"><label for="bc-aud">Send to</label><select id="bc-aud"><option value="all">Everyone with a phone number</option><option value="suppliers">Suppliers with a live listing</option><option value="town">Suppliers in one town</option></select></div>
+        <div class="field"><label for="bc-from">Send from</label><select id="bc-from">${senders.map((x) => `<option value="${esc(x)}">${esc(x)}${x === mainSender ? ' (alerts and site news)' : x === 'MCASOREBA' ? ' (mission greetings and appeals)' : ''}</option>`).join('')}</select><span class="hint">A name only works once Arkesel has approved it; check Sender IDs on Arkesel.</span></div>
         <div class="field" id="bc-town-f" hidden><label for="bc-town">Town</label><select id="bc-town">${(towns || []).map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>
       </div>
       <label class="check" style="white-space:normal"><input type="checkbox" id="bc-opt" checked> Add the "how to stop these texts" line: <i>${esc(v.sms_optout_line || '')}</i></label>
@@ -386,7 +389,7 @@ async function textsAdmin(u) {
       <button class="btn" type="submit">Save wording</button>
     </form>
     <h2 style="margin-top:28px">Recent texts</h2>
-    ${(log || []).length ? `<div style="overflow-x:auto"><table class="table" style="font-size:.88rem"><thead><tr><th>When</th><th>To</th><th>Type</th><th>Result</th><th>Message</th></tr></thead><tbody>${log.map((r) => `<tr><td>${new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td>${esc(localPhone(r.phone))}</td><td>${esc(r.reason)}</td><td>${esc(r.status)}</td><td>${esc(r.message)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No texts yet.</p>'}`;
+    ${(log || []).length ? `<div style="overflow-x:auto"><table class="table" style="font-size:.88rem"><thead><tr><th>When</th><th>To</th><th>Type</th><th>From</th><th>Result</th><th>Message</th></tr></thead><tbody>${log.map((r) => `<tr><td>${new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td>${esc(localPhone(r.phone))}</td><td>${esc(r.reason)}</td><td>${esc(r.sender || '')}</td><td>${esc(r.status)}</td><td>${esc(r.message)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No texts yet.</p>'}`;
   const count = (id) => {
     const el = document.getElementById(id); const out = document.querySelector(`[data-count="${id}"]`);
     const upd = () => { const n = el.value.replace(/\{name\}/g, 'Akosua').length; const parts = n <= 160 ? 1 : Math.ceil(n / 153); out.textContent = `${n} characters · ${parts} credit${parts > 1 ? 's' : ''} per person (about)`; };
@@ -406,9 +409,9 @@ async function textsAdmin(u) {
     const msg = document.getElementById('bc-msg').value.trim();
     const n = Number(document.getElementById('bc-count').dataset.n || 0);
     if (!n) return toast('Nobody to send to.', true);
-    if (!confirm(`Send this message to ${n} ${n === 1 ? 'person' : 'people'}? It uses about ${n} text credit${n === 1 ? '' : 's'} or more.\n\n${msg}`)) return;
+    if (!confirm(`Send this message from ${document.getElementById('bc-from').value} to ${n} ${n === 1 ? 'person' : 'people'}? It uses about ${n} text credit${n === 1 ? '' : 's'} or more.\n\n${msg}`)) return;
     const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Sending…';
-    const { data, error } = await db.rpc('sms_broadcast', { p_message: msg, p_audience: aud.value, p_town: aud.value === 'town' ? Number(townSel.value) : null, p_optout: document.getElementById('bc-opt').checked });
+    const { data, error } = await db.rpc('sms_broadcast', { p_message: msg, p_audience: aud.value, p_town: aud.value === 'town' ? Number(townSel.value) : null, p_optout: document.getElementById('bc-opt').checked, p_sender: document.getElementById('bc-from').value });
     btn.disabled = false; btn.textContent = 'Send message';
     if (error) return fail(error, 'Sending');
     toast(`Sent to ${data.sent}${data.failed ? `, ${data.failed} failed` : ''}.`);
