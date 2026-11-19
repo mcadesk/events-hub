@@ -1,6 +1,6 @@
 import { CFG, db, app, esc, store, session, go, cedi, priceText, photoUrl, hash, ICONS, placeholder, catPhoto, banner,
-  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=54';
-import { SAMPLE_LISTINGS } from './sample.js?v=54';
+  ref, townOptions, catOptions, me, clearMe, toast, regionOf, thumbImg, toGhanaPhone, localPhone, NO_CASH } from './core.js?v=55';
+import { SAMPLE_LISTINGS } from './sample.js?v=55';
 
 let REF = null;
 const waNumber = (n) => String(n || '').replace(/[^0-9]/g, '');
@@ -43,7 +43,7 @@ async function render() {
     REF = await ref();
     if (parts.length === 0) return home();
     if (['signin', 'me', 'reset'].includes(parts[0])) {
-      const dash = await import('./dash.js?v=54');
+      const dash = await import('./dash.js?v=55');
       return dash.route(parts, params);
     }
     if (parts[0] === 't' && parts[1] && !parts[2]) return townPage(parts[1]);
@@ -538,7 +538,7 @@ function aboutPage() {
     <div class="cta-band" style="margin-top:14px"><div><b>YAHYIAM is free, and we'd love your support.</b><br><span class="muted">You are encouraged to donate towards the projects of MEYE CATHOLIC ASOREBA.</span></div><a class="btn btn-gold" href="#/donate">Donate</a></div>
     <p class="muted">A yearly report of what came in and where it went will be published here.</p>
     <h2>Work with us</h2>
-    <p>YAHYIAM is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
+    <p>YAHYIAM is run by local people. We especially want to give <b>unemployed young people</b> the chance to earn as field agents, district heads and regional coordinators. <a href="#/join">See how to join the team</a>.</p>
   </div>`;
 }
 
@@ -550,9 +550,10 @@ function joinPage() {
     <h2>The roles</h2>
     <div class="role-cards">
       <div class="panel"><h3>Field agent</h3><p>Visit event suppliers and market sellers in your town, help them list on YAHYIAM, take photos and verify them.</p><p class="muted"><b>Pay:</b> commission. 50% of the first month when a supplier you registered buys a Top spot or Featured place, then 20% of every later payment.</p></div>
-      <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: check applicants, hire and guide field agents, open new towns, and check new listings, flyers and reports from your region on your phone.</p><p class="muted"><b>Pay:</b> 15% of the income from your region every month, plus agent commission on suppliers you register yourself.</p></div>
+      <div class="panel"><h3>District head</h3><p>Run one district (municipality): check applicants, hire and guide field agents, open new towns, and check new listings, flyers and reports from your district on your phone.</p><p class="muted"><b>Pay:</b> 10% of the income from your district every month, plus agent commission on suppliers you register yourself.</p></div>
+      <div class="panel"><h3>Regional coordinator</h3><p>Lead the team in a region: appoint and guide district heads, and run any district that has no head yet.</p><p class="muted"><b>Pay:</b> 5% of the income from districts with a head and 15% from districts without one, every month, plus agent commission on suppliers you register yourself.</p></div>
     </div>
-    <p class="notice" style="background:var(--gold-soft)"><b>Never collect money.</b> Agents and coordinators must never ask suppliers or customers for cash. All payments are made online by the client, and your commission comes from YAHYIAM. A client may choose to give you a tip; you may accept it, but never ask for one.</p>
+    <p class="notice" style="background:var(--gold-soft)"><b>Never collect money.</b> Agents, district heads and coordinators must never ask suppliers or customers for cash. All payments are made online by the client, and your commission comes from YAHYIAM. A client may choose to give you a tip; you may accept it, but never ask for one.</p>
     <p class="notice" style="background:var(--gold-soft)">All pay is commission. It starts small and grows as more suppliers in your area join and pay for extras. It works best alongside other work or study at first.</p>
     <h2>What you need</h2>
     <ul>
@@ -567,7 +568,7 @@ function joinPage() {
     <h2>How it works</h2>
     <ol>
       <li>Create a free account and fill in the short application.</li>
-      <li>The regional coordinator calls you, then your pastor or guarantor.</li>
+      <li>Your district head or regional coordinator calls you, then your pastor or guarantor.</li>
       <li>If all is well, you are accepted and your account opens the tools for your role.</li>
     </ol>
     <div class="cta-band" style="margin-top:14px"><div><b>Ready to apply?</b><br><span class="muted">It takes about 5 minutes. Have your pastor's or guarantor's phone number ready.</span></div><a class="btn" href="#/me/join">Apply now</a></div>
@@ -587,7 +588,7 @@ function listPage() {
     <div class="medals" style="margin:4px 0 14px" aria-label="YAHYIAM badges">
       <img src="icons/badges/listed.png" alt="Listed on YAHYIAM badge" title="Every listed supplier" loading="lazy">
       <img src="icons/badges/founding.png" alt="Founding Supplier badge" title="First 10 suppliers in each town" loading="lazy">
-      <img src="icons/badges/featured.png?v=54" alt="Featured Supplier badge" title="Featured places" loading="lazy">
+      <img src="icons/badges/featured.png?v=55" alt="Featured Supplier badge" title="Featured places" loading="lazy">
       <img src="icons/badges/top.png" alt="Top Spot badge" title="Top spots" loading="lazy">
       <img src="icons/badges/supporter.png" alt="Supporter badge" title="Donors to MEYE CATHOLIC ASOREBA projects" loading="lazy">
     </div>

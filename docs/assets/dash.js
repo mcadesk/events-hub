@@ -1,11 +1,11 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=54';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=55';
 
 let REF;
 const BASE = location.origin + location.pathname;
 const STAFF = ['moderator', 'admin'];
-const ROLE_LABEL = { host: 'Member', supplier: 'Supplier', agent: 'Field agent', coordinator: 'Regional coordinator', moderator: 'Moderator', partner: 'Loan partner', admin: 'Admin' };
+const ROLE_LABEL = { host: 'Member', supplier: 'Supplier', agent: 'Field agent', coordinator: 'Coordinator (region or district)', moderator: 'Moderator', partner: 'Loan partner', admin: 'Admin' };
 
 export async function route(parts, params) {
   REF = await ref();
@@ -62,7 +62,7 @@ function shell(u, active, title, body) {
       ${t('home', 'My listings')}
       ${t('quotes', 'Quotes')}
       ${t('flyer', 'Post a flyer')}
-      ${t('region', 'My region', ['coordinator'])}
+      ${t('region', 'My area', ['coordinator'])}
       ${t('agent', u.role === 'coordinator' ? 'Waiting for a visit' : 'My towns', ['agent', 'coordinator', 'admin'])}
       ${t('register', 'Register a supplier', ['agent', 'moderator', 'admin'])}
       ${t('review', 'Pending review', [...STAFF, 'coordinator'])}
@@ -256,7 +256,7 @@ async function home(u) {
   ].filter((k) => k[2]);
   const badgeKit = liveL.length ? `<div class="panel" style="margin-top:20px"><h3 style="margin:0 0 4px">Your YAHYIAM badges</h3>
     <span class="muted">Share them on WhatsApp and Facebook, or print them for your shop, so customers know they can find you on YAHYIAM.</span>
-    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=54" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
+    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=55" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
       <a class="btn btn-ghost btn-small" href="icons/badges/${k}.png" download="YAHYIAM-${k}.png">Download</a></figure>`).join('')}</div></div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
@@ -843,21 +843,31 @@ async function flyerQueue(container, u) {
 
 /* ---------- regional coordinator ---------- */
 async function myRegionTowns(u) {
-  const { data: regs } = await db.from('coordinator_regions').select('region_id,regions(name)').eq('coordinator_id', u.id);
-  const ids = (regs || []).map((r) => r.region_id);
-  if (!ids.length) return { regions: [], towns: [] };
-  const { data: towns } = await db.from('towns').select('id,name,slug,active,lat,lng,district_id,districts!inner(id,name,region_id)').in('districts.region_id', ids).order('name');
-  return { regions: regs.map((r) => r.regions?.name), towns: towns || [] };
+  const [{ data: regs }, { data: dists }] = await Promise.all([
+    db.from('coordinator_regions').select('region_id,regions(name)').eq('coordinator_id', u.id),
+    db.from('coordinator_districts').select('district_id,districts(name,region_id)').eq('coordinator_id', u.id)
+  ]);
+  const regionIds = (regs || []).map((r) => r.region_id), districtIds = (dists || []).map((d) => d.district_id);
+  if (!regionIds.length && !districtIds.length) return { regions: [], districts: [], regional: false, towns: [], districtIds: [] };
+  const sel = 'id,name,slug,active,lat,lng,district_id,districts!inner(id,name,region_id)';
+  const [a, b] = await Promise.all([
+    regionIds.length ? db.from('towns').select(sel).in('districts.region_id', regionIds).order('name') : Promise.resolve({ data: [] }),
+    districtIds.length ? db.from('towns').select(sel).in('district_id', districtIds).order('name') : Promise.resolve({ data: [] })
+  ]);
+  const towns = [...new Map([...(a.data || []), ...(b.data || [])].map((t) => [t.id, t])).values()].sort((x, y) => x.name.localeCompare(y.name));
+  return { regions: (regs || []).map((r) => r.regions?.name), districts: (dists || []).map((d) => d.districts?.name), regional: regionIds.length > 0,
+    regionIds, districtIds, towns };
 }
 
 async function regionHome(u, params) {
   const q = params.get('q') || '';
-  shell(u, 'region', 'My region', '<div class="skeleton"></div>');
-  const { regions, towns } = await myRegionTowns(u);
-  if (!regions.length) {
-    document.getElementById('dash').innerHTML = '<div class="empty"><h3>No region assigned yet</h3><p class="muted">Ask the admin to assign you a region.</p></div>';
+  shell(u, 'region', 'My area', '<div class="skeleton"></div>');
+  const { regions, districts, regional, towns } = await myRegionTowns(u);
+  if (!regions.length && !districts.length) {
+    document.getElementById('dash').innerHTML = '<div class="empty"><h3>No area assigned yet</h3><p class="muted">Ask your regional coordinator or the admin to assign you a region or district.</p></div>';
     return;
   }
+  const { data: heads } = regional ? await db.rpc('my_district_heads') : { data: [] };
   const ym = new Date().toISOString().slice(0, 7);
   const [from, to] = monthRange(ym);
   const [{ data: stats }, found] = await Promise.all([
@@ -879,7 +889,7 @@ async function regionHome(u, params) {
     <details><summary>Assign towns</summary>${townChecks(p.id)}<button class="btn btn-small" data-save-towns>Save towns</button></details>
     <div class="row-actions"><button class="btn btn-ghost" data-unagent>Remove as agent</button></div></div>`;
   document.getElementById('dash').innerHTML = `
-    <p>You coordinate: <b>${regions.map(esc).join(', ')}</b> · ${towns.filter((t) => t.active).length} towns open, ${towns.filter((t) => !t.active).length} hidden.</p>
+    <p>${regional ? `Regional coordinator for <b>${regions.map(esc).join(', ')}</b>` : `District head for <b>${districts.map(esc).join(', ')}</b>`} · ${towns.filter((t) => t.active).length} towns open, ${towns.filter((t) => !t.active).length} hidden.</p>
     <div class="row-actions" style="margin-bottom:16px"><a class="btn btn-ghost" href="#/me/agent">Waiting for a visit</a><a class="btn btn-ghost" href="#/me/reports">Reports</a><a class="btn btn-ghost" href="#/me/towns">Towns</a><a class="btn btn-ghost" href="#/me/tally">Tally</a></div>
     <h2>Recruit an agent</h2>
     <p class="muted">Ask the person to create a free YAHYIAM account first, then find them here.</p>
@@ -887,10 +897,31 @@ async function regionHome(u, params) {
     ${q ? `<div class="row-list" style="margin-bottom:20px">${(found.data || []).map((p) => p.role === 'agent'
         ? agentRow({ id: p.id, name: p.full_name, email: p.email }, (stats || []).find((s) => s.agent_id === p.id))
         : `<div class="row"><div class="row-top"><div><b>${esc(p.full_name || '—')}</b><br><span class="muted">${esc(p.email || '')} · ${esc(localPhone(p.phone))}</span></div>
-           <button class="btn btn-small" data-make="${p.id}">Make agent</button></div></div>`).join('') || '<p class="muted">No one found. They may need to create an account first.</p>'}</div>` : ''}
-    <h2>Agents in my region</h2>
+           <div class="filters"><button class="btn btn-small" data-make="${p.id}">Make agent</button>${regional ? `<select data-hd-district aria-label="District">${[...new Map((heads || []).map((h) => [h.district_id, h.district_name])).entries()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('')}</select><button class="btn btn-small btn-ghost" data-make-head="${p.id}">Make district head</button>` : ''}</div></div></div>`).join('') || '<p class="muted">No one found. They may need to create an account first.</p>'}</div>` : ''}
+    ${regional ? `<h2>District heads</h2>
+    <p class="muted">A district head runs one district for you: agents, new listings, reports and towns there. They get 10% of the district's income and you keep 5%. Districts with no head stay with you at 15%. Find a person above to appoint them.</p>
+    <div style="overflow-x:auto;margin-bottom:22px"><table class="table"><thead><tr><th>District</th><th>Head</th><th></th></tr></thead><tbody>
+    ${[...new Map((heads || []).map((h) => [h.district_id, h])).values()].map((d) => { const hs = (heads || []).filter((h) => h.district_id === d.district_id && h.person_id);
+      return `<tr><td>${esc(d.district_name)}</td><td>${hs.map((h) => `<b>${esc(h.full_name || '—')}</b> <span class="muted">${esc(localPhone(h.phone))}</span>`).join('<br>') || '<span class="muted">No head yet (you cover it)</span>'}</td>
+      <td>${hs.map((h) => `<button class="linkish" data-rm-head="${h.person_id}" data-d="${d.district_id}">Remove ${esc((h.full_name || '').split(' ')[0])}</button>`).join('<br>')}</td></tr>`; }).join('')}
+    </tbody></table></div>` : ''}
+    <h2>Agents in my ${regional ? 'region' : 'district'}</h2>
     <div class="row-list">${(stats || []).map((s) => agentRow({ id: s.agent_id, name: s.agent_name, email: s.agent_email }, s)).join('') || '<div class="empty"><p class="muted" style="margin:0">No agents yet. Recruit one above, then assign their towns.</p></div>'}</div>`;
   document.getElementById('rc-f').addEventListener('submit', (e) => { e.preventDefault(); go(`/me/region?q=${encodeURIComponent(document.getElementById('rc-q').value.trim())}`); });
+  document.querySelectorAll('[data-make-head]').forEach((b) => b.addEventListener('click', async () => {
+    const sel = b.parentElement.querySelector('[data-hd-district]');
+    const name = sel.options[sel.selectedIndex]?.text || '';
+    if (!confirm(`Make this person the district head for ${name}?`)) return;
+    const { data: m, error } = await db.rpc('appoint_district_head', { p_user: b.dataset.makeHead, p_district: Number(sel.value) });
+    if (error) return fail(error, 'Appointing');
+    toast(m); regionHome(u, params);
+  }));
+  document.querySelectorAll('[data-rm-head]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Remove this district head? The district comes back to you.')) return;
+    const { error } = await db.rpc('remove_district_head', { p_user: b.dataset.rmHead, p_district: Number(b.dataset.d) });
+    if (error) return fail(error, 'Removing');
+    toast('Removed. The district is back with you.'); regionHome(u, params);
+  }));
   document.querySelectorAll('[data-make]').forEach((b) => b.addEventListener('click', async () => {
     const { error } = await db.rpc('coordinator_set_agent', { p_user: b.dataset.make, p_agent: true });
     if (error) return fail(error, 'Making agent');
@@ -922,7 +953,7 @@ async function agentHome(u) {
   let townIds;
   if (u.role === 'coordinator') townIds = (await myRegionTowns(u)).towns.map((t) => t.id);
   else { const { data: mine } = await db.from('agent_towns').select('town_id').eq('agent_id', u.id); townIds = (mine || []).map((t) => t.town_id); }
-  if (u.role === 'coordinator' && !townIds.length) { document.getElementById('dash').innerHTML = '<div class="empty"><p class="muted" style="margin:0">No region assigned yet.</p></div>'; return; }
+  if (u.role === 'coordinator' && !townIds.length) { document.getElementById('dash').innerHTML = '<div class="empty"><p class="muted" style="margin:0">No region or district assigned yet.</p></div>'; return; }
   if (!townIds.length && u.role === 'agent') {
     document.getElementById('dash').innerHTML = '<div class="empty"><h3>No towns assigned yet</h3><p class="muted">Ask the admin to assign you to your towns.</p><a class="btn" href="#/me/register">Register a supplier anyway</a></div>';
     return;
@@ -931,7 +962,7 @@ async function agentHome(u) {
   if (townIds.length) q = q.in('base_town_id', townIds);
   const { data: todo } = await q;
   document.getElementById('dash').innerHTML = `
-    <p>${u.role === 'coordinator' ? 'Listings in your region that no one has verified yet.' : townIds.length ? `Your towns: <b>${townIds.map((id) => esc(REF.townById[id]?.name)).join(', ')}</b>` : 'You see all towns.'}</p>
+    <p>${u.role === 'coordinator' ? 'Listings in your area that no one has verified yet.' : townIds.length ? `Your towns: <b>${townIds.map((id) => esc(REF.townById[id]?.name)).join(', ')}</b>` : 'You see all towns.'}</p>
     <div class="row-actions" style="margin-bottom:16px"><a class="btn" href="#/me/register">+ Register a supplier</a><a class="btn btn-ghost" href="#/me/tally">${u.role === 'coordinator' ? 'Tally and pay' : 'My tally'}</a></div>
     <h2>Waiting for a visit</h2><p class="muted">Visit these suppliers, check the business is real, then mark them verified.</p>
     <div class="row-list">${(todo || []).length ? todo.map((l) => `<div class="row"><div class="row-top"><div><b>${esc(l.business_name)}</b><br><span class="muted">${esc(l.towns?.name)}</span></div>${statusBadge(l.status)}</div>
@@ -978,12 +1009,12 @@ async function tally(u, params) {
     const { data: ce } = await db.rpc('coordinator_earnings', { p_from: from, p_to: to });
     const rows = ce || [];
     const total = rows.reduce((s, r) => s + Number(r.earnings), 0);
-    document.getElementById('coord-earn').innerHTML = `<h2 style="margin-top:26px">${u.role === 'admin' ? 'Regional coordinator pay' : 'My pay as coordinator'}</h2>
-      <p class="muted" style="margin-top:-4px">15% of the region's income this month: paid places bought in its towns and flyer fees for events held there. Payments from suppliers the coordinator registered personally are left out here, because the coordinator earns agent commission on those instead. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
-      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Region</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Region income</th><th>Pay (15%)</th><th>Live suppliers registered by</th></tr></thead><tbody>
-      ${rows.map((r) => `<tr><td>${esc(r.region_name)}</td><td>${r.coordinator_id ? `<b>${esc(r.coordinator_name || '—')}</b><br><span class="muted">${esc(r.coordinator_email || '')}</span>` : '<span class="muted">No coordinator</span>'}</td>
+    document.getElementById('coord-earn').innerHTML = `<h2 style="margin-top:26px">${u.role === 'admin' ? 'Coordinator pay' : 'My pay as coordinator'}</h2>
+      <p class="muted" style="margin-top:-4px">Coordinators share 15% of each district's income this month. Where a district has a head, the head gets 10% and the regional coordinator 5%; where it has none, the regional coordinator gets the full 15%. Income means paid places bought in its towns and flyer fees for events held there. Payments from suppliers the coordinator registered personally are left out here, because the coordinator earns agent commission on those instead. Donations are not counted. Deals a coordinator brought in are added by hand.</p>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>Area</th><th>Coordinator</th><th>Places</th><th>Flyers</th><th>Income</th><th>Pay</th><th>Live suppliers registered by</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td>${esc(r.region_name)}<br><span class="muted">${r.level === 'district' ? 'District head' : 'Region'}</span></td><td>${r.coordinator_id ? `<b>${esc(r.coordinator_name || '—')}</b><br><span class="muted">${esc(r.coordinator_email || '')}</span>` : '<span class="muted">No coordinator</span>'}</td>
         <td>${cedi(r.place_income)}</td><td>${cedi(r.flyer_income)}</td><td>${cedi(r.total_income)}</td><td><b>${r.coordinator_id ? cedi(r.earnings) : '—'}</b></td>
-        <td>${r.coordinator_id ? `Coordinator: <b>${r.self_registered}</b><br>Agents: <b>${r.agents_registered}</b>${Number(r.self_registered) > Number(r.agents_registered) && Number(r.self_registered) >= 5 ? '<br><span class="badge" style="background:#f6e4e2;color:var(--red)">Check: coordinator keeps most</span>' : ''}` : '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No regional income or coordinators this month.</td></tr>'}
+        <td>${r.coordinator_id ? `Coordinator: <b>${r.self_registered}</b><br>Agents: <b>${r.agents_registered}</b>${Number(r.self_registered) > Number(r.agents_registered) && Number(r.self_registered) >= 5 ? '<br><span class="badge" style="background:#f6e4e2;color:var(--red)">Check: coordinator keeps most</span>' : ''}` : '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No coordinator income this month.</td></tr>'}
       </tbody>${rows.length && u.role === 'admin' ? `<tfoot><tr><td colspan="5"><b>Total to pay coordinators</b></td><td><b>${cedi(total)}</b></td><td></td></tr></tfoot>` : ''}</table></div>`;
   }
 }
@@ -1135,6 +1166,9 @@ async function people(u, params) {
     db.from('coordinator_regions').select('coordinator_id,region_id')
   ]);
   const regionsOf = (id) => (cr || []).filter((c) => c.coordinator_id === id).map((c) => c.region_id);
+  const { data: heads } = await db.rpc('my_district_heads');
+  const allDistricts = [...new Map((heads || []).map((h) => [h.district_id, h])).values()];
+  const districtsOf = (id) => (heads || []).filter((h) => h.person_id === id).map((h) => h.district_id);
   const o = overview || {};
   document.getElementById('dash').innerHTML = `
     <div class="stat-grid" style="margin-bottom:18px">
@@ -1151,10 +1185,12 @@ async function people(u, params) {
       <div class="row-top"><div><b>${esc(p.full_name || '—')}</b><br><span class="muted">${esc(p.email || '')} · ${esc(localPhone(p.phone))}</span></div>
         <div class="filters"><select data-role>${Object.entries(ROLE_LABEL).map(([k, t]) => `<option value="${k}" ${p.role === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
         <button class="btn btn-small" data-save-role>Save role</button></div></div>
-      ${p.role === 'agent' ? `<details><summary>Assigned towns (${townsOf(p.id).length})</summary><div class="checks" style="margin-top:8px">${REF.towns.map((t) => `<label class="check"><input type="checkbox" value="${t.id}" ${townsOf(p.id).includes(t.id) ? 'checked' : ''}> ${esc(t.name)}</label>`).join('')}</div>
+      ${p.role === 'agent' ? `<details><summary>Assigned towns (${townsOf(p.id).length})</summary><div class="checks" data-towns style="margin-top:8px">${REF.towns.map((t) => `<label class="check"><input type="checkbox" value="${t.id}" ${townsOf(p.id).includes(t.id) ? 'checked' : ''}> ${esc(t.name)}</label>`).join('')}</div>
         <button class="btn btn-small" data-save-towns style="margin-top:8px">Save towns</button></details>` : ''}
       ${p.role === 'coordinator' ? `<details open><summary>Regions they coordinate (${regionsOf(p.id).length})</summary><div class="checks" data-regions style="margin-top:8px">${(allRegions || []).map((r) => `<label class="check"><input type="checkbox" value="${r.id}" ${regionsOf(p.id).includes(r.id) ? 'checked' : ''}> ${esc(r.name)}</label>`).join('')}</div>
         <button class="btn btn-small" data-save-regions style="margin-top:8px">Save regions</button></details>` : ''}
+      ${['coordinator', 'agent', 'host', 'supplier'].includes(p.role) && !regionsOf(p.id).length ? `<details${districtsOf(p.id).length ? ' open' : ''}><summary>Districts they head (${districtsOf(p.id).length})</summary><div class="checks" data-districts style="margin-top:8px">${allDistricts.map((d) => `<label class="check"><input type="checkbox" value="${d.district_id}" ${districtsOf(p.id).includes(d.district_id) ? 'checked' : ''}> ${esc(d.district_name)} <span class="muted">(${esc(d.region_name)})</span></label>`).join('')}</div>
+        <button class="btn btn-small" data-save-districts style="margin-top:8px">Save districts</button></details>` : ''}
     </div>`).join('') || '<p class="muted">No one found.</p>'}</div>`;
   document.getElementById('pp-f').addEventListener('submit', (e) => { e.preventDefault(); go(`/me/people?q=${encodeURIComponent(document.getElementById('pp-q').value.trim())}`); });
   document.querySelectorAll('[data-person]').forEach((row) => {
@@ -1174,8 +1210,14 @@ async function people(u, params) {
       }
       toast('Regions saved.');
     });
+    row.querySelector('[data-save-districts]')?.addEventListener('click', async () => {
+      const want = [...row.querySelectorAll('[data-districts] input:checked')].map((c) => Number(c.value)), have = districtsOf(id);
+      for (const d of want.filter((x) => !have.includes(x))) { const { error } = await db.rpc('appoint_district_head', { p_user: id, p_district: d }); if (error) return fail(error, 'Saving districts'); }
+      for (const d of have.filter((x) => !want.includes(x))) { const { error } = await db.rpc('remove_district_head', { p_user: id, p_district: d }); if (error) return fail(error, 'Saving districts'); }
+      toast('Districts saved.'); people(u, params);
+    });
     row.querySelector('[data-save-towns]')?.addEventListener('click', async () => {
-      const ids = [...row.querySelectorAll('.checks input:checked')].map((c) => Number(c.value));
+      const ids = [...row.querySelectorAll('[data-towns] input:checked')].map((c) => Number(c.value));
       await db.from('agent_towns').delete().eq('agent_id', id);
       if (ids.length) {
         const { error } = await db.from('agent_towns').insert(ids.map((t) => ({ agent_id: id, town_id: t })));
@@ -1192,8 +1234,9 @@ async function townsAdmin(u) {
   if (u.role === 'coordinator') {
     const r = await myRegionTowns(u);
     towns = r.towns;
-    const regionIds = (await db.from('coordinator_regions').select('region_id').eq('coordinator_id', u.id)).data.map((x) => x.region_id);
-    districts = (await db.from('districts').select('id,name').in('region_id', regionIds).order('name')).data || [];
+    districts = r.regionIds?.length ? (await db.from('districts').select('id,name').in('region_id', r.regionIds).order('name')).data || [] : [];
+    const own = [...new Map(r.towns.map((t) => [t.districts.id, { id: t.districts.id, name: t.districts.name }])).values()];
+    districts = [...new Map([...districts, ...own].map((d) => [d.id, d])).values()].sort((a, b) => a.name.localeCompare(b.name));
   } else {
     [{ data: towns }, { data: districts }] = await Promise.all([
       db.from('towns').select('id,name,slug,lat,lng,active,size,districts(name)').order('name'),
@@ -1558,7 +1601,7 @@ async function payPage(u, params) {
       <p>Pay for <b>${esc(monthName)}</b>: <b>${cedi(owed)}</b> still to pay · ${cedi(paid)} already paid. Send each person's pay by MoMo, then record it here with the MoMo reference.</p>
       <div class="row-list">${(rows || []).map((r) => `<div class="row">
         <div class="row-top"><div><b>${esc(r.full_name || r.email || '—')}</b> <span class="muted">· ${esc(ROLE_LABEL[r.role] || r.role)}</span><br><span class="muted">MoMo: ${esc(localPhone(r.phone || '')) || 'no phone on file'}</span></div><div style="text-align:right">${status(r)}</div></div>
-        <dl class="kv"><dt>Agent commission</dt><dd>${cedi(r.commission)}</dd>${Number(r.coordinator_pay) ? `<dt>Coordinator 15%</dt><dd>${cedi(r.coordinator_pay)}</dd>` : ''}<dt>Total earned</dt><dd><b>${cedi(r.total)}</b></dd></dl>
+        <dl class="kv"><dt>Agent commission</dt><dd>${cedi(r.commission)}</dd>${Number(r.coordinator_pay) ? `<dt>Coordinator share</dt><dd>${cedi(r.coordinator_pay)}</dd>` : ''}<dt>Total earned</dt><dd><b>${cedi(r.total)}</b></dd></dl>
         ${linesFor(r.person_id).length ? `<details><summary>See the payments behind this</summary>${lineTable(linesFor(r.person_id))}</details>` : ''}
         ${r.paid_at ? `<button class="linkish" data-undo="${r.person_id}">Undo this record</button>` : `<form class="filters" data-pay="${r.person_id}"><input type="number" min="0" step="0.01" required value="${Number(r.total).toFixed(2)}" aria-label="Amount sent" style="max-width:120px"><input type="text" required placeholder="MoMo reference / transaction ID" style="flex:1;min-width:180px"><button class="btn btn-small" type="submit">Mark as paid</button></form>`}
       </div>`).join('') || '<div class="empty"><p class="muted">Nobody earned anything this month.</p></div>'}</div>${rules}`;
@@ -1588,7 +1631,7 @@ async function payPage(u, params) {
   document.getElementById('p-m').addEventListener('change', (e) => go(`/me/pay?m=${e.target.value}`));
 }
 
-const ROLE_WANT = { agent: 'Field agent', coordinator: 'Regional coordinator' };
+const ROLE_WANT = { agent: 'Field agent', district_head: 'District head', coordinator: 'Regional coordinator' };
 const ROLE_WANT_ALL = { ...ROLE_WANT, moderator: 'Moderator' };
 const WORK = { unemployed: 'Unemployed', student: 'Student / just finished school', part_time: 'Part-time work', employed: 'Employed' };
 
@@ -1686,7 +1729,7 @@ async function applications(u, params) {
   const wa = (p, text) => `https://wa.me/${String(p).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`;
   const tabs = [['open', 'To check'], ['accepted', 'Accepted'], ['declined', 'Declined']];
   document.getElementById('dash').innerHTML = `
-    <p class="muted" style="max-width:760px">${u.role === 'coordinator' ? 'Applicants from your region who want to be field agents.' : 'All applications. Coordinators handle field agents in their regions; applications to be a coordinator, and regions without a coordinator, are yours.'} Call the applicant, then their pastor or guarantor, before accepting.</p>
+    <p class="muted" style="max-width:760px">${u.role === 'coordinator' ? 'Applicants in your area who want to be field agents, and, for regional coordinators, people who want to be district heads.' : 'All applications. District heads and regional coordinators handle field agents in their areas; regional coordinators also handle district head applications. Applications to be a regional coordinator, and areas without a coordinator, are yours.'} Call the applicant, then their pastor or guarantor, before accepting.</p>
     <div class="filters" style="margin-bottom:12px">${tabs.map(([k, t]) => `<a class="btn btn-small ${k === st ? '' : 'btn-ghost'}" href="#/me/apps?s=${k}">${t}</a>`).join('')}</div>
     <div class="row-list">${(data || []).map((a) => {
       const town = REF.townById[a.town_id];
@@ -1716,7 +1759,7 @@ async function applications(u, params) {
     if (to === 'accept') {
       const { data: m, error } = await db.rpc('accept_application', { p_id: f.dataset.app, p_note: note });
       if (error) return fail(error, 'Accepting');
-      toast(m + (m.includes('field agent') ? ' You can add more towns for them in My region.' : ''));
+      toast(m + (m.includes('field agent') ? ' You can add more towns for them in My area.' : ''));
     } else {
       const { error } = await db.from('team_applications').update({ status: to, staff_note: note }).eq('id', f.dataset.app);
       if (error) return fail(error, 'Saving');
