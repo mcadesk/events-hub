@@ -1,6 +1,6 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=55';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=56';
 
 let REF;
 const BASE = location.origin + location.pathname;
@@ -256,7 +256,7 @@ async function home(u) {
   ].filter((k) => k[2]);
   const badgeKit = liveL.length ? `<div class="panel" style="margin-top:20px"><h3 style="margin:0 0 4px">Your YAHYIAM badges</h3>
     <span class="muted">Share them on WhatsApp and Facebook, or print them for your shop, so customers know they can find you on YAHYIAM.</span>
-    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=55" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
+    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=56" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
       <a class="btn btn-ghost btn-small" href="icons/badges/${k}.png" download="YAHYIAM-${k}.png">Download</a></figure>`).join('')}</div></div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
@@ -1166,6 +1166,7 @@ async function people(u, params) {
     db.from('coordinator_regions').select('coordinator_id,region_id')
   ]);
   const regionsOf = (id) => (cr || []).filter((c) => c.coordinator_id === id).map((c) => c.region_id);
+  const { data: isOwner } = await db.rpc('am_owner');
   const { data: heads } = await db.rpc('my_district_heads');
   const allDistricts = [...new Map((heads || []).map((h) => [h.district_id, h])).values()];
   const districtsOf = (id) => (heads || []).filter((h) => h.person_id === id).map((h) => h.district_id);
@@ -1179,12 +1180,12 @@ async function people(u, params) {
     ${(o.misses || []).length ? `<div class="panel" style="margin-bottom:18px"><h3>Searches with no results (30 days)</h3><p class="hint" style="margin-top:0">Recruit these suppliers next.</p>
       <table class="table"><tbody>${o.misses.map((m) => `<tr><td>${esc(m.town || '—')}</td><td>${esc(m.category || 'Any')}</td><td>${m.n}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <h2>Team and members</h2>
-    <p class="muted">Ask a helper to create a free account first, then find them here by email and give them a role.</p>
+    <p class="muted">Ask a helper to create a free account first, then find them here by email and give them a role.${isOwner ? '' : ' Only the owner can make or remove admins.'}</p>
     <form class="filters" id="pp-f" style="margin-bottom:12px"><input type="search" id="pp-q" placeholder="Search by email or name" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
     <div class="row-list">${list.map((p) => `<div class="row" data-person="${p.id}">
       <div class="row-top"><div><b>${esc(p.full_name || '—')}</b><br><span class="muted">${esc(p.email || '')} · ${esc(localPhone(p.phone))}</span></div>
-        <div class="filters"><select data-role>${Object.entries(ROLE_LABEL).map(([k, t]) => `<option value="${k}" ${p.role === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
-        <button class="btn btn-small" data-save-role>Save role</button></div></div>
+        <div class="filters">${!isOwner && p.role === 'admin' ? `<span class="badge">Admin</span>` : `<select data-role>${Object.entries(ROLE_LABEL).filter(([k]) => isOwner || k !== 'admin').map(([k, t]) => `<option value="${k}" ${p.role === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        <button class="btn btn-small" data-save-role>Save role</button>`}</div></div>
       ${p.role === 'agent' ? `<details><summary>Assigned towns (${townsOf(p.id).length})</summary><div class="checks" data-towns style="margin-top:8px">${REF.towns.map((t) => `<label class="check"><input type="checkbox" value="${t.id}" ${townsOf(p.id).includes(t.id) ? 'checked' : ''}> ${esc(t.name)}</label>`).join('')}</div>
         <button class="btn btn-small" data-save-towns style="margin-top:8px">Save towns</button></details>` : ''}
       ${p.role === 'coordinator' ? `<details open><summary>Regions they coordinate (${regionsOf(p.id).length})</summary><div class="checks" data-regions style="margin-top:8px">${(allRegions || []).map((r) => `<label class="check"><input type="checkbox" value="${r.id}" ${regionsOf(p.id).includes(r.id) ? 'checked' : ''}> ${esc(r.name)}</label>`).join('')}</div>
@@ -1195,7 +1196,7 @@ async function people(u, params) {
   document.getElementById('pp-f').addEventListener('submit', (e) => { e.preventDefault(); go(`/me/people?q=${encodeURIComponent(document.getElementById('pp-q').value.trim())}`); });
   document.querySelectorAll('[data-person]').forEach((row) => {
     const id = row.dataset.person;
-    row.querySelector('[data-save-role]').addEventListener('click', async () => {
+    row.querySelector('[data-save-role]')?.addEventListener('click', async () => {
       if (id === u.id && row.querySelector('[data-role]').value !== 'admin') return toast("You can't remove your own admin role here.", true);
       const { error } = await db.from('profiles').update({ role: row.querySelector('[data-role]').value }).eq('id', id);
       if (error) return fail(error, 'Saving the role');
