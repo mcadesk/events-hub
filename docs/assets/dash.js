@@ -1,10 +1,12 @@
 // Account pages: sign-in, supplier dashboard, listing editor, field agent, moderator and admin screens.
 import { CFG, db, app, esc, session, go, cedi, photoUrl, placeholder, hash, ref, townOptions, catPhoto,
-  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=56';
+  me, clearMe, toast, toGhanaPhone, localPhone, slugify, resetRef, regionOf, thumbImg, thumbPath, NO_CASH as NO_CASH_TEXT } from './core.js?v=57';
 
 let REF;
 const BASE = location.origin + location.pathname;
 const STAFF = ['moderator', 'admin'];
+// A phone search: 024 123 4567, 0241234567, +233241234567 → the last 9 digits
+const phoneQ = (q) => { const d = String(q).replace(/\D/g, ''); return d.length >= 9 && /^[\d\s+()-]+$/.test(q) ? d.slice(-9) : ''; };
 const ROLE_LABEL = { host: 'Member', supplier: 'Supplier', agent: 'Field agent', coordinator: 'Coordinator (region or district)', moderator: 'Moderator', partner: 'Loan partner', admin: 'Admin' };
 
 export async function route(parts, params) {
@@ -256,7 +258,7 @@ async function home(u) {
   ].filter((k) => k[2]);
   const badgeKit = liveL.length ? `<div class="panel" style="margin-top:20px"><h3 style="margin:0 0 4px">Your YAHYIAM badges</h3>
     <span class="muted">Share them on WhatsApp and Facebook, or print them for your shop, so customers know they can find you on YAHYIAM.</span>
-    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=56" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
+    <div class="badge-kit">${kitItems.map(([k, name]) => `<figure><img src="icons/badges/${k}.png?v=57" alt="${name} badge"${k === 'sticker' ? ' class="sticker"' : ''} loading="lazy"><figcaption>${name}</figcaption>
       <a class="btn btn-ghost btn-small" href="icons/badges/${k}.png" download="YAHYIAM-${k}.png">Download</a></figure>`).join('')}</div></div>` : '';
   document.getElementById('dash').innerHTML = `${intro}${appPanel}${donorPanel}
     ${listings.length ? `<div class="section-head"><h2>My listings</h2><a class="btn btn-small" href="#/me/new">+ Add a listing</a></div>
@@ -872,7 +874,7 @@ async function regionHome(u, params) {
   const [from, to] = monthRange(ym);
   const [{ data: stats }, found] = await Promise.all([
     db.rpc('agent_stats', { p_from: from, p_to: to }),
-    q ? db.from('profiles').select('id,full_name,email,phone,role').or(`email.ilike.%${q}%,full_name.ilike.%${q}%`).limit(20) : Promise.resolve({ data: [] })
+    q ? db.from('profiles').select('id,full_name,email,phone,role').or(phoneQ(q) ? `phone.ilike.%${phoneQ(q)}` : `email.ilike.%${q.replace(/[,()]/g, ' ')}%,full_name.ilike.%${q.replace(/[,()]/g, ' ')}%`).limit(20) : Promise.resolve({ data: [] })
   ]);
   const agentIds = (stats || []).map((s) => s.agent_id).concat((found.data || []).filter((p) => p.role === 'agent').map((p) => p.id));
   const { data: at } = agentIds.length ? await db.from('agent_towns').select('agent_id,town_id').in('agent_id', [...new Set(agentIds)]) : { data: [] };
@@ -893,7 +895,7 @@ async function regionHome(u, params) {
     <div class="row-actions" style="margin-bottom:16px"><a class="btn btn-ghost" href="#/me/agent">Waiting for a visit</a><a class="btn btn-ghost" href="#/me/reports">Reports</a><a class="btn btn-ghost" href="#/me/towns">Towns</a><a class="btn btn-ghost" href="#/me/tally">Tally</a></div>
     <h2>Recruit an agent</h2>
     <p class="muted">Ask the person to create a free YAHYIAM account first, then find them here.</p>
-    <form class="filters" id="rc-f" style="margin-bottom:12px"><input type="search" id="rc-q" placeholder="Search by email or name" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
+    <form class="filters" id="rc-f" style="margin-bottom:12px"><input type="search" id="rc-q" placeholder="Name, email or phone number" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
     ${q ? `<div class="row-list" style="margin-bottom:20px">${(found.data || []).map((p) => p.role === 'agent'
         ? agentRow({ id: p.id, name: p.full_name, email: p.email }, (stats || []).find((s) => s.agent_id === p.id))
         : `<div class="row"><div class="row-top"><div><b>${esc(p.full_name || '—')}</b><br><span class="muted">${esc(p.email || '')} · ${esc(localPhone(p.phone))}</span></div>
@@ -1155,7 +1157,7 @@ async function people(u, params) {
   shell(u, 'people', 'People', '<div class="skeleton"></div>');
   const [{ data: overview }, peopleRes] = await Promise.all([
     db.rpc('admin_overview'),
-    (q ? db.from('profiles').select('id,full_name,email,phone,role').or(`email.ilike.%${q}%,full_name.ilike.%${q}%`)
+    (q ? db.from('profiles').select('id,full_name,email,phone,role').or(phoneQ(q) ? `phone.ilike.%${phoneQ(q)}` : `email.ilike.%${q.replace(/[,()]/g, ' ')}%,full_name.ilike.%${q.replace(/[,()]/g, ' ')}%`)
        : db.from('profiles').select('id,full_name,email,phone,role').neq('role', 'host')).order('created_at', { ascending: false }).limit(50)
   ]);
   const list = peopleRes.data || [];
@@ -1180,8 +1182,8 @@ async function people(u, params) {
     ${(o.misses || []).length ? `<div class="panel" style="margin-bottom:18px"><h3>Searches with no results (30 days)</h3><p class="hint" style="margin-top:0">Recruit these suppliers next.</p>
       <table class="table"><tbody>${o.misses.map((m) => `<tr><td>${esc(m.town || '—')}</td><td>${esc(m.category || 'Any')}</td><td>${m.n}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <h2>Team and members</h2>
-    <p class="muted">Ask a helper to create a free account first, then find them here by email and give them a role.${isOwner ? '' : ' Only the owner can make or remove admins.'}</p>
-    <form class="filters" id="pp-f" style="margin-bottom:12px"><input type="search" id="pp-q" placeholder="Search by email or name" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
+    <p class="muted">Ask a helper to create a free account first, then find them here by name, email or phone number and give them a role.${isOwner ? '' : ' Only the owner can make or remove admins.'}</p>
+    <form class="filters" id="pp-f" style="margin-bottom:12px"><input type="search" id="pp-q" placeholder="Name, email or phone number" value="${esc(q)}"><button class="btn btn-small" type="submit">Find</button></form>
     <div class="row-list">${list.map((p) => `<div class="row" data-person="${p.id}">
       <div class="row-top"><div><b>${esc(p.full_name || '—')}</b><br><span class="muted">${esc(p.email || '')} · ${esc(localPhone(p.phone))}</span></div>
         <div class="filters">${!isOwner && p.role === 'admin' ? `<span class="badge">Admin</span>` : `<select data-role>${Object.entries(ROLE_LABEL).filter(([k]) => isOwner || k !== 'admin').map(([k, t]) => `<option value="${k}" ${p.role === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
